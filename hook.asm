@@ -9,6 +9,8 @@
 
  EXTERN BHL_plus_DE,libraryVectors,bNameBackup,iversion,irandom,isprite,ilsprite,igetpix,ifastcopy,idetect,idecomp,getNoshellSettings
  EXTERN wProgSize,wByteCount,wProgBytes,wProgOffset,wDataPtr,bDataPage,wTempWord,SPbackup,wUserMemPtr,tempByte,inc_BHL,flagByte,oldHookBlock
+ EXTERN CleanUp
+
 
 Abackup              equ    0FE72h
 HLbackup             equ    Abackup+1
@@ -17,6 +19,7 @@ BCbackup             equ    DEbackup+5
 hOP1backup           equ    BCbackup+7
 basicProgBackup      equ    hOP1backup+11
 tempHookBlock        equ    0FFFAh
+
 
 
 runProgram:
@@ -112,9 +115,11 @@ progExecErrorHandler:
        res 7,a
        push af
        call deleteAllTempProgs
+		 call CleanUp
        pop af
        B_JUMP JError
 throwMemErr:
+		 call CleanUp
        B_JUMP ErrMemory
 basicProgram:
        ld a,b
@@ -276,6 +281,7 @@ archivedErrorHandler:
        or a
        jr z,$F
        B_CALL Arc_Unarc
+		 call CleanUp
 $$:    pop af
        B_JUMP JError
 ;*** MIRAGEOS PROGRAM WITH QUIT ROUTINE ***

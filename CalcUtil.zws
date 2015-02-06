@@ -30,7 +30,7 @@ NAME = SIMULATOR_Z8PLUS
 
 [PRJ PATH]
 #begin
-PATH = d:\asm\zds\calcutil\
+PATH = d:\asm\zds\calcutil2\
 #end
 
 [FILES]
@@ -236,7 +236,7 @@ SIZE = 65536
 
 [BREAKPOINT SETTINGS]
 #begin
-FILENAME = d:\asm\zds\calcutil\sendos.asm
+FILENAME = d:\asm\zds\calcutil2\sendos.asm
 LINE = 419
 ADDRESS = 0x00000000
 #end

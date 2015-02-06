@@ -1,4 +1,4 @@
-CalcUtil v1.08
+CalcUtil v2.00b1
 (C) 2007 Daniel Weisz.
 
 	This program is free software; you can redistribute it and/or modify
@@ -33,10 +33,10 @@ ASM programs (archived or unarchived) can be run like BASIC programs without the
 3)Archive and unarchive programs within a BASIC program.
 CalcUtil overrides the Archive and Unarchive tokens to allow archiving and unarchiving any programs within a BASIC program (even the program itself, although if an unarchived program archives itself, execution will stop).
 
-4)Have a program run at startup.
+4)Have a program run at startup.***Removed temporarily***
 To run any program when the calculator turns on, create a BASIC program called PROGLIST.  On an empty line, write a capital S (for Startup), a colon, and then the program name.
 
-5)Create shortcut keys to programs.
+5)Create shortcut keys to programs.***Removed temporarily***
 To assign a program to a shortcut key ([ON] + any number key [1] through [9]), create a BASIC program called PROGLIST.  On an empty line, write the key number, a colon, and then the program name.
 
 Example:
@@ -50,14 +50,20 @@ PROGRAM:PROGLIST
 With this configuration, prgmHELLO would run on startup, prgmMINESWEP would run when [ON]+[2] is pressed at the same time, and prgmPHYSICS would be run when [ON]+[5] is pressed at the same time.
 
 6)Edit archived programs.
-To edit an archived and unlocked BASIC program, open it in the editor as with any unarchived program.  Ignore the odd title displayed.  Edit it as normal.  When you quit by pressing QUIT, OFF, or any key that changes app context, you will be asked to press one of the top keys to save or discard changes made to the program.
+To edit an archived and unlocked BASIC program, open it in the editor as with any unarchived program.  Ignore title if it is odd.  Edit it as normal.  If you select "Save Screen" in the settings menu, you will be asked to press one of the top keys to save or discard changes made to the program.
 
 7)Calculate logs in bases other than 10.
 CalcUtil overrides the log( function so that by adding a base as a second parameter, you can determine the log of a number in a base other than 10.
 
-Version History
----------------
+8)Run assembly programs written for Ion or MirageOS.
+Run as with any non-shell assembly program (with or without Asm().  If writeback is selected in the settings menu, then any settings changed in the game or high score achieved will be written back to archive if necessary.
 
+Version 2 History
+---------------
+v2.00b1: First release, with all-new hook routines.  Much more stable than version 1.  Better hook chaining.  Includes smart writeback and more editor save options.  Fixed bug with Error>Goto location.  Startup/shortcut keys removed for now, but they will be added back once core stability is confirmed.
+
+Version 1 History
+-----------------
 v1.0: Original release
 v1.01: Bugfix: X key no longer causes startup program to run
 v1.02: Bugfix: Programs run via startup or shortcut keys run at full speed
