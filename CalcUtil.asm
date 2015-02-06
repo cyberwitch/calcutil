@@ -1,4 +1,4 @@
-; CalcUtil v2.00b1
+; CalcUtil v2.00b2
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -132,7 +132,7 @@ StartApp:
 	set textInverse, (IY + textFlags)
 	call PutSApp
 	res textInverse, (IY + textFlags)
-	b_call NewLine
+;	b_call NewLine
 	ld hl, One
 	call PutSApp
 	;res textInverse, (IY + textFlags)
@@ -440,9 +440,12 @@ NoOffscrpt:
 	b_call GetKey
 	jr StartApp
 
+
+
+
 ConfigureNoshell:
 SettingsMenu:
-	xor a
+	ld a, 1
 	ld (AppBackUpScreen), a
 	b_call ClrLCDFull
 	ld hl, 0
@@ -463,29 +466,48 @@ SettingsMenu:
 	ld (curRow), hl
 	ld hl, SaveScr
 	call PutSApp
-	set textInverse, (IY + textFlags)
+	ld hl, 0203h
+	ld (curRow), hl
+	ld hl, Token
+	call PutSApp
+;	set textInverse, (IY + textFlags)
 	call CheckSettings
+	call CheckSettings
+	push af
 	xor a
 	cp e
-	jr nz, WritebackOn
-	res textInverse, (IY + textFlags)
-WritebackOn:
+	jr z, WritebackOff
+;	res textInverse, (IY + textFlags)
+
 	ld hl, 0101h
 	ld (curRow), hl
-	ld a, '_'
+	ld a, '*'
 	b_call PutC
-	set textInverse, (IY + textFlags)
+WritebackOff:
+;	set textInverse, (IY + textFlags)
 	xor a
 	cp d
-	jr nz, SaveOn
-	res textInverse, (IY + textFlags)
-SaveOn:
+	jr z, SaveOff
+;	res textInverse, (IY + textFlags)
+
 	ld hl, 0102h
 	ld (curRow), hl
-	ld a, '_'
+	ld a, '*'
 	b_call PutC
+SaveOff:
+	pop af
+;	set textInverse, (IY + textFlags)
+	or a
+	jr z, TokenOff
+;	res textInverse, (IY + textFlags)
+
+	ld hl, 0103h
+	ld (curRow), hl
+	ld a, '*'
+	b_call PutC
+TokenOff:
 MenuLoop2:
-	res textInverse, (IY + textFlags)
+;	res textInverse, (IY + textFlags)
 	res indicOnly, (IY + indicFlags)
 	b_call GetKey
 	res onInterrupt, (IY + onFlags)
@@ -496,24 +518,25 @@ MenuLoop2:
 	cp kEnter
 	jr z, Toggle
 	cp kUp
-	jr z, Switch
+	jr z, GoUp
 	cp kDown
-	jr z, Switch
+	jr z, GoDown
 	jr MenuLoop2
 
-Switch:
+GoUp:
 	xor a
 	ld (curCol), a
 	ld a, (AppBackUpScreen)
-	inc a
 	ld (curRow), a
 	ld a, ' '
 	b_call PutC
 	ld a, (curRow)
 	dec a
-	xor 1
+	cp 0
+	jr nz, NoLoopUp
+	ld a, 3
+NoLoopUp:
 	ld (AppBackUpScreen), a
-	inc a
 	ld (curRow), a
 	xor a
 	ld (curCol), a
@@ -521,12 +544,61 @@ Switch:
 	b_call PutC
 	jr MenuLoop2
 
-Toggle:
-	set textInverse, (IY + textFlags)
+GoDown:
+	xor a
+	ld (curCol), a
 	ld a, (AppBackUpScreen)
-	cp 0
+	ld (curRow), a
+	ld a, ' '
+	b_call PutC
+	ld a, (curRow)
+	inc a
+	cp 4
+	jr nz, NoLoopDown
+	ld a, 1
+NoLoopDown:
+	ld (AppBackUpScreen), a
+	ld (curRow), a
+	xor a
+	ld (curCol), a
+	ld a, 5
+	b_call PutC
+	jr MenuLoop2
+
+
+
+
+Toggle:
+;	set textInverse, (IY + textFlags)
+	ld a, (AppBackUpScreen)
+	cp 1
 	jr z, ToggleWriteback
-	jr ToggleSave
+	cp 2
+	jr z, ToggleSave
+ToggleToken:
+	call CheckSettings
+	cp 0
+	jr nz, SetToken
+	ld de, 24
+	add hl, de
+	ld (hl), 1
+	ld hl, 0103h
+	ld (curRow), hl
+;	ld a, '_'
+	ld a, '*'
+	b_call PutC
+	jr MenuLoop2
+SetToken:
+	ld de, 24
+	add hl, de
+	ld (hl), 0
+	ld hl, 0103h
+	ld (curRow), hl
+;	res textInverse, (IY + textFlags)
+;	ld a, '_'
+	ld a, ' '
+	b_call PutC
+	jr MenuLoop2
 
 ToggleWriteback:
 	call CheckSettings
@@ -537,15 +609,17 @@ ToggleWriteback:
 	ld (hl), 80h
 	ld hl, 0101h
 	ld (curRow), hl
-	ld a, '_'
+;	ld a, '_'
+	ld a, '*'
 	b_call PutC
 	jr MenuLoop2
 SetWriteback:
 	ld (hl), 0
 	ld hl, 0101h
 	ld (curRow), hl
-	res textInverse, (IY + textFlags)
-	ld a, '_'
+;	res textInverse, (IY + textFlags)
+;	ld a, '_'
+	ld a, ' '
 	b_call PutC
 	jr MenuLoop2
 
@@ -557,19 +631,21 @@ ToggleSave:
 	ld (hl), 1
 	ld hl, 0102h
 	ld (curRow), hl
-	ld a, '_'
+;	ld a, '_'
+	ld a, '*'
 	b_call PutC
 	jr MenuLoop2
 SetSave:
 	ld (hl), 0
 	ld hl, 0102h
 	ld (curRow), hl
-	res textInverse, (IY + textFlags)
-	ld a, '_'
+;	res textInverse, (IY + textFlags)
+;	ld a, '_'
+	ld a, ' '
 	b_call PutC
 	jr MenuLoop2
 
-CheckSettings:						;E will hold writeback flag (80/0) and D will hold save flag (1/0)
+CheckSettings:						;E will hold writeback flag (80/0) and D will hold save flag (1/0) and A will hold token flag (1/0)
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -578,15 +654,21 @@ CheckSettings:						;E will hold writeback flag (80/0) and D will hold save flag
 	cp b
 	jr z, SettingsUnarc
 	b_call Arc_Unarc
+	b_call ChkFindSym
 SettingsUnarc:
 	ld hl, 9
 	add hl, de
 	ld e, (hl)
 	inc hl
 	ld d, (hl)
+	push hl
+	push de
+	ld de, 24
+	add hl, de
+	pop de
+	ld a, (hl)
+	pop hl
 	ret
-
-
 
 
 
@@ -645,6 +727,8 @@ AboutScreen:
 NewAppVar:
 	ld hl, 0
 	ld (AppBackUpScreen+10), hl
+	xor a
+	ld (AppBackUpScreen+12), a
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -664,6 +748,10 @@ NotArccc:
 	inc hl
 	ld a, (hl)
 	ld (AppBackUpScreen+11), a
+	ld de, 24
+	add hl, de
+	ld a, (hl)
+	ld (AppBackUpScreen+12), a
 	pop de
 	pop hl
 	b_call DelVarArc
@@ -687,6 +775,10 @@ clearloop:
 	ld (hl), a
 	ld a, (AppBackUpScreen+11)
 	inc hl
+	ld (hl), a
+	ld de, 24
+	add hl, de
+	ld a, (AppBackUpScreen+12)
 	ld (hl), a
 	ret
 
@@ -714,8 +806,22 @@ AppVarName:
 
 
 
-
-
+RestoreHooks:
+	push af
+	push hl
+	in a, (6)
+	ld hl, AppChangeHook
+	ld (appChangeHookPtr), hl
+	ld (appChangeHookPtr+2), a
+	ld hl, RawKeyHook
+	ld (rawKeyHookPtr), hl
+	ld (rawKeyHookPtr+2), a
+	ld hl, ParserHook
+	ld (parserHookPtr), hl
+	ld (parserHookPtr+2), a
+	pop hl
+	pop af
+	ret
 
 
 
@@ -755,7 +861,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.00b1", 0
+	db "CalcUtil v2.00b2", 0
 One:
 	db "1:", 0
 Install:
@@ -782,6 +888,8 @@ Writeback:
 	db "Writeback", 0
 SaveScr:
 	db "Save Screen", 0
+Token:
+	db "Legacy Tokens", 0
 
 
 
@@ -965,6 +1073,7 @@ ReturnZPopAll:
 	pop bc
 	pop af
 	jr ReturnZ
+
 
 
 TurnOffFromEditor:
@@ -1235,9 +1344,7 @@ ReturnReturn:
 	ret
 
 
-
-
-ChainAppChangeHook:																		;Restores registers and passes onto the chained app's hook
+ChainAppChangeHook:
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -1253,44 +1360,112 @@ NotArc333:
 	ld e, (hl)
 	inc hl
 	ld d, (hl)
-	xor a
-	cp d
+	inc hl
+	ld a, (hl)
+	cp 0
 	jr z, ReturnZPopAll
-	inc hl
-	ld a, (hl)
-	push de
-	push bc
-	ld hl, JumpToOldHook3
-	ld de, AppBackUpScreen
-	ld bc, EndJump3 - JumpToOldHook3
-	ldir
-	jp AppBackUpScreen
-
-
-JumpToOldHook3:
-	out (6), a
-	pop bc
-	pop hl
-	ld a, (hl)
-	cp 83h
-	jr nz, RetZ3
-	inc hl
+	ld b, a
 	ex de, hl
-	ld ix, 0
-	add ix, de
+	b_call LoadCIndPaged
+	ld (AppBackUpScreen+20), a
+	ld a, 83h
+	cp c
+	jr nz, ReturnZPopAll
+	ld a, (AppBackUpScreen+20)
+	inc hl
+;	push hl
+;	ld hl, JumpToOldHook
+;	ld de, AppBackUpScreen
+;	ld bc, EndJump - JumpToOldHook
+;	ldir
+;	pop de
+;	pop hl
+;	pop bc
+;	pop af
+;	ld (AppBackUpScreen+3), a
+;	in a, (6)
+;	ld (AppBackUpScreen+8), a
+;	ld a, (AppBackUpScreen+20)
+;	ld (AppBackUpScreen+5), de
+;	call AppBackUpScreen
+;Return:
+;	ret
+
+	ld (AppBackUpScreen), hl
+	ld (AppBackUpScreen+2), a
+	ld (appChangeHookPtr), hl
+	ld (appChangeHookPtr+2), a
 	pop hl
 	pop de
 	pop bc
 	pop af
-	jp (ix)
-RetZ3:
-	pop hl
-	pop de
-	pop bc
-	pop af
-	cp a
+	rst 28h
+	dw AppBackUpScreen+4000h
+	call RestoreHooks
 	ret
-EndJump3:
+
+AppChangePop:
+	pop hl
+	pop de
+	pop bc
+	pop af
+	ret
+
+
+;ChainAppChangeHook:																		;Restores registers and passes onto the chained app's hook
+;	ld hl, AppVarName
+;	rst rMov9ToOP1
+;	b_call ChkFindSym
+;	jr c, ReturnZPopAll
+;	xor a
+;	cp b
+;	jr z, NotArc333
+;	b_call Arc_Unarc
+;	b_call ChkFindSym
+;NotArc333:
+;	ld hl, 31
+;	add hl, de
+;	ld e, (hl)
+;	inc hl
+;	ld d, (hl)
+;	xor a
+;	cp d
+;	jr z, ReturnZPopAll
+;	inc hl
+;	ld a, (hl)
+;	push de
+;	push bc
+;	ld hl, JumpToOldHook3
+;	ld de, AppBackUpScreen
+;	ld bc, EndJump3 - JumpToOldHook3
+;	ldir
+;	jp AppBackUpScreen
+;
+;
+;JumpToOldHook3:
+;	out (6), a
+;	pop bc
+;	pop hl
+;	ld a, (hl)
+;	cp 83h
+;	jr nz, RetZ3
+;	inc hl
+;	ex de, hl
+;	ld ix, 0
+;	add ix, de
+;	pop hl
+;	pop de
+;	pop bc
+;	pop af
+;	jp (ix)
+;RetZ3:
+;	pop hl
+;	pop de
+;	pop bc
+;	pop af
+;	cp a
+;	ret
+;EndJump3:
 
 
 
@@ -1317,11 +1492,21 @@ ParserHook:
 	b_call Arc_Unarc
 	b_call ChkFindSym
 NotArcc2:
-	ld hl, 11
+	inc de
+	inc de
+	ex de, hl
+	ld de, 0FFFDh
+	ld bc, 3
+	ldir
+	ld de, 6
 	add hl, de
 	ld (hl), 0
 	inc hl
 	ld (hl), 0
+
+
+
+	
 	ld hl, parseVar
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -1343,11 +1528,13 @@ NotArcc2:
 
 
 	cp t2ByteTok
-	jr nz, ReturnZ
+;	jr nz, ReturnZ
+	jr nz, Run#
 	inc de
 	ld a, (de)
 	cp tasm												;If the first tokens are Asm(prgm, skip the Asm and continue
-	jr nz, ReturnZ
+;	jr nz, ReturnZ
+	jr nz, Run#
 	inc de
 	ld a, (de)
 	cp tProg
@@ -1355,8 +1542,40 @@ NotArcc2:
 	cp a
 	ret
 
-			
-		
+
+
+
+Run#:
+	ld hl, PrgmPound
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ret c
+	call PreParser
+	ld hl, SmallParserHook
+	ld (parserHookPtr), hl
+	in a, (6)
+	ld (parserHookPtr+2), a
+	b_call ParseInp
+	b_call PushRealO1
+	ld hl, PrgmPound
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, Huh?
+	call PreParser_Restore
+Huh?:
+	res progExecuting, (iy + newDispF)
+	res cmdexec, (iy + cmdFlags)
+	b_call PopRealO1
+;	b_call ZeroOP1
+	or 1
+	ret
+
+SmallParserHook:
+	db 83h
+	call RestoreHooks
+	cp a
+	ret
+
 
 TooManyPrograms:
 	b_call ClrLCDFull
@@ -1412,6 +1631,7 @@ NotArcc3:
 	ld bc, 8
 	ldir
 	b_call ChkFindSym
+	ret c
 	xor a
 	cp b
 	jr nz, RunningArchived
@@ -1441,10 +1661,19 @@ Asm:
 	call 59h
 	call runProgram
 	call 5Ch
+	set appTextSave, (iy + appFlags)
+	ld hl, 0
+	ld (curRow), hl
+	set indicRun, (iy + indicFlags)
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
-	ld hl, 11
+	ld hl, 0FFFDh
+	inc de
+	inc de
+	ld bc, 3
+	ldir
+	ld hl, 6
 	add hl, de
 	ld a, (hl)
 	dec a
@@ -1459,10 +1688,13 @@ NotAsm:
 	set cmdexec, (iy + cmdFlags)
 	ld hl, AsmErrors
 	call 59h
+	in a, (2)
+	rla
+	sbc a, a
+	out (20h), a
 	b_call ParseInp
 	call 5Ch
-;	res progExecuting, (iy + newDispF)
-;	res cmdexec, (iy + cmdFlags)
+	b_call OP1ToOP6
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -1471,9 +1703,13 @@ NotAsm:
 	ld a, (hl)
 	dec a
 	ld (hl), a
+	push af
 	call PopRealO1
 	call PopRealO1
 	call PreParser_Restore
+	pop af
+	cp 0
+	jr z, LastProgram
 	or 1
 	ret
 RunningArchived:
@@ -1526,10 +1762,19 @@ YesWriteback:
 	call 59h
 	call runProgram
 	call 5Ch
+	set appTextSave, (iy + appFlags)
+	ld hl, 0
+	ld (curRow), hl
+	set indicRun, (iy + indicFlags)
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
-	ld hl, 11
+	ld hl, 0FFFDh
+	inc de
+	inc de
+	ld bc, 3
+	ldir
+	ld hl, 6
 	add hl, de
 	ld a, (hl)
 	dec a
@@ -1639,10 +1884,13 @@ ArcNotAsm:
 	set cmdexec, (iy + cmdFlags)
 	ld hl, BasicErrors
 	call 59h
+	in a, (2)
+	rla
+	sbc a, a
+	out (20h), a
 	b_call ParseInp
 	call 5Ch
-;	res progExecuting, (iy + newDispF)
-;	res cmdexec, (iy + cmdFlags)
+	b_call OP1ToOP6
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -1651,6 +1899,7 @@ ArcNotAsm:
 	ld a, (hl)
 	dec a
 	ld (hl), a
+	push af
 	inc hl
 	ld a, (hl)
 	dec a
@@ -1661,11 +1910,21 @@ ArcNotAsm:
 	b_call DelVarArc
 ArcGone:
 	call PopRealO1
+	pop af
+	cp 0
+	jr z, LastProgram
 	or 1
 	ret
 
 
 
+
+LastProgram:
+	res progExecuting, (iy + newDispF)
+	res cmdexec, (iy + cmdFlags)
+	b_call OP6ToOP1
+	or 1
+	ret
 
 
 
@@ -1710,6 +1969,9 @@ BasicErrors:
 	
 	call FixGoto
 
+	res progExecuting, (iy + newDispF)
+	res cmdexec, (iy + cmdFlags)
+
 	b_jump JErrorNo
 
 
@@ -1735,6 +1997,10 @@ AsmErrors:
 	call PreParser_Restore
 
 	call FixGoto	
+
+
+	res progExecuting, (iy + newDispF)
+	res cmdexec, (iy + cmdFlags)
 
 	b_jump JErrorNo
 
@@ -1845,6 +2111,12 @@ SkipAByte:
 
 
 CleanUp:
+	ld hl, PrgmPound
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, WTFNo#?
+	call PreParser_Restore
+WTFNo#?:
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -1928,11 +2200,18 @@ FinishCleanUp:
 
 
 Function:
-	push hl
-	ld hl, 0C0C0h
-	sbc hl, bc
-	jr nz, ArcTok
-	pop hl
+	push af
+	ld a, b
+	cp 1
+	jr z, XX01
+	cp c
+	jr nz, ChainParserNew
+	cp 8Ah
+	jr z, RealTok
+	cp 0C0h
+	jr nz, ChainParserNew
+	
+	pop af
 	ld a, 2
 	cp l
 	jr nz, ReturnZ
@@ -1953,6 +2232,16 @@ Function:
 	or 1
 	ret
 
+XX01:
+	ld a, c
+	cp 5Bh
+	jr z, ArcTok
+	cp 5Ch
+	jr z, UnarcTok
+	cp 0Bh
+	jr z, StopTok
+	jr ChainParserNew
+
 ComplexLog:
 	b_call LogX
 	b_call OP1ExOP6
@@ -1969,11 +2258,6 @@ _IncFetch equ 4B73h
 basic_pc equ 965Dh
 
 ArcTok:																				;Allows archiving programs from within a program
-	ld hl, 5B01h
-	sbc hl, bc
-	jr nz, UnarcTok
-	pop hl
-	push af
 	push bc
 	push de
 	push hl
@@ -2014,13 +2298,6 @@ PopAllReturnNZ:
 
 
 UnarcTok:																	;Allows unarchiving programs from within a program
-	scf
-	ccf
-	ld hl, 5C01h
-	sbc hl, bc
-	jr nz, StopTok
-	pop hl
-	push af
 	push bc
 	push de
 	push hl
@@ -2041,49 +2318,37 @@ UnarcTok:																	;Allows unarchiving programs from within a program
 
 
 StopTok:																		;Handles Stop tokens without a ram clear
-	scf
-	ccf
-	ld hl, 0B01h
-	sbc hl, bc
-	jr nz, RealTok
-	pop hl
+	pop af
 	call CleanUp
 	b_call DispDone
 	B_JUMP JForceCmdNoChar
 
 
 RealTok:																		;Handles prgm tokens converted to real(42," so that subprograms are handled properly
-	scf
-	ccf
-	ld hl, 8A8Ah
-	sbc hl, bc
-	jr nz, ChainParser
-	pop hl
 	push hl
-	push af
 	ld a, l
 	cp 2
-	jr nz, ChainParserA
+	jr nz, ChainParserAHL
 	xor a
 	cp h
-	jr nz, ChainParserA
+	jr nz, ChainParserAHL
 	push bc
 	push de
 	b_call OP1ToOP6
 	b_call PopRealO1
 	b_call OP1ToOP5
 	b_call CkPosInt
-	jr nz, ChainParserReload
+	jr nz, ChainParserReloadNew
 	b_call ConvOP1
 	cp 42
 	jr z, YesReal
 	cp 43
-	jr nz, ChainParserReload
+	jr nz, ChainParserReloadNew
 YesReal:
 	pop de
 	pop bc
-	pop af
 	pop hl
+	pop af
 	ld hl, 0
 	b_call OP6ToOP1
 
@@ -2139,102 +2404,82 @@ ThrowError:
 	ld a, E_Undefined
 	b_call JError
 
-ChainParserReload:
-	b_call OP5ToOP1
-	b_call PushRealO1
+ChainParserReloadNew:
+	b_call PushRealO5
 	b_call OP6ToOP1
 	pop de
 	pop bc
-ChainParserA:
-	pop af
-ChainParser:																		;Restores registers and passes onto the chained app's hook
-	push af
+ChainParserAHL:
+	pop hl
+ChainParserNew:
 	push bc
-	b_call PushRealO1
-	ld hl, AppVarName
-	rst rMov9ToOP1
-	b_call ChkFindSym
-	jr c, PopLots
-	xor a
-	cp b
-	jr z, NotArc
-	b_call Arc_Unarc
-	b_call ChkFindSym
-NotArc:
 	push hl
-	push de
-	b_call PopRealO1
-	pop de
-	pop hl
-	pop bc
-	inc de
-	inc de
+	ld de, (0FFFDh)
+	ld a, (0FFFFh)
+	cp 0
+	jr z, ParserPop
+	ld b, a
 	ex de, hl
-	ld e, (hl)
+	b_call LoadCIndPaged
+	ld (AppBackUpScreen+20), a
+	ld a, 83h
+	cp c
+	jr nz, ParserPop
+	ld a, (AppBackUpScreen+20)
 	inc hl
-	ld d, (hl)
-	xor a
-	cp d
-	jr z, PopAFReturnZ
-	inc hl
-	ld a, (hl)
-	push de
-	push bc
-	ld hl, JumpToOldHook
-	ld de, AppBackUpScreen
-	ld bc, EndJump - JumpToOldHook
-	ldir
-	jp AppBackUpScreen
+;	push hl
+;	ld hl, JumpToOldHook
+;	ld de, AppBackUpScreen
+;	ld bc, EndJump - JumpToOldHook
+;	ldir
+;	pop de
+;	pop hl
+;	pop bc
+;	pop af
+;	ld (AppBackUpScreen+3), a
+;	in a, (6)
+;	ld (AppBackUpScreen+8), a
+;	ld a, (AppBackUpScreen+20)
+;	ld (AppBackUpScreen+5), de
+;	call AppBackUpScreen
+;Return:
+;	ret
 
-PopAFReturnZ
-	pop af
-	pop hl
-	jr ReturnZ
-	
-PopLots:
-	push hl
-	push de
-	b_call PopRealO1
-	pop de
+	ld (AppBackUpScreen), hl
+	ld (AppBackUpScreen+2), a
+	ld (parserHookPtr), hl
+	ld (parserHookPtr+2), a
 	pop hl
 	pop bc
 	pop af
-	pop hl
-	jr ReturnZ
-
-
-JumpToOldHook:
-	out (6), a
-	pop bc
-	pop hl
-	ld a, (hl)
-	cp 83h
-	jr nz, RetZ
-	inc hl
-	ex de, hl
-	ld ix, 0
-	add ix, de
-	pop af
-	pop hl
-	jp (ix)
-RetZ:
-	pop af
-	pop hl
+	rst 28h
+	dw AppBackUpScreen+4000h
+	jr z, ParserZero
+	call RestoreHooks
+	or 1
+	ret
+ParserZero:
+	call RestoreHooks
 	cp a
 	ret
-EndJump:
+
+ParserPop:
+	pop hl
+	pop bc
+	pop af
+	cp a
+	ret
 
 
 
-
-
-
-
-
-
-
-
-
+;JumpToOldHook:
+;	out (6), a
+;	ld a, 0FFh
+;	call 0FFFFh
+;	ld a, 0FFh
+;	out (6), a
+;	ret
+;EndJump:
 
 
 
@@ -2351,17 +2596,40 @@ NotArc13:
 	ld e, (hl)
 	inc hl
 	ld d, (hl)
-	xor a
-	cp d
-	jr z, PopAReturnZ
 	inc hl
 	ld a, (hl)
-	push de
-	ld hl, JumpToOldHook2
-	ld de, AppBackUpScreen
-	ld bc, EndJump2 - JumpToOldHook2
-	ldir
-	jp AppBackUpScreen
+	cp 0
+	jr z, PopAReturnZ
+	ex de, hl
+	ld b, a
+	b_call LoadCIndPaged
+	ld a, 83h
+	cp c
+	jr nz, PopAReturnZ
+	inc hl
+	ld a, b
+	ld (AppBackUpScreen), hl
+	ld (AppBackUpScreen+2), a
+	ld (rawKeyHookPtr), hl
+	ld (rawKeyHookPtr+2), a
+	pop af
+	rst 28h
+	dw AppBackUpScreen+4000h
+	jr z, RawKeyZero
+	push af
+	call RestoreHooks
+	pop af
+	ret
+RawKeyZero:
+	call RestoreHooks
+	cp a
+	ret
+;	push de
+;	ld hl, JumpToOldHook2
+;	ld de, AppBackUpScreen
+;	ld bc, EndJump2 - JumpToOldHook2
+;	ldir
+;	jp AppBackUpScreen
 
 Quitting:
 	ld a, (cxCurApp)
@@ -2371,7 +2639,8 @@ Quitting:
 	call CleanUp
 	ld a, kQuit
 	cp a
-	ret	
+	ret
+
 
 PopAReturnZ:
 	pop af
@@ -3081,6 +3350,60 @@ PreParser_CheckAsm:
 	jr PreParser_ReturnFromAsm
 
 PreParser_CheckArcUnarc:
+
+
+	cp 0CFh
+	jr c,PreParser_CheckArcUnarc2
+	ld (hl),tReal
+	push af
+	;We found a BB,CF or greater token...
+	inc hl
+	ex de,hl
+	;DE = insertion address
+	ld hl,3
+	B_CALL InsertMem
+	ld bc,(sizechange)
+	inc bc
+	inc bc
+	inc bc
+	ld (sizechange),bc
+	ld bc,(bufferend)
+	inc bc
+	inc bc
+	inc bc
+	ld (bufferend),bc
+	ex de,hl
+	;HL now points to 3 bytes to store the "##,"
+	pop af
+	sub 0CFh
+	ld c,-1
+PreParser_Get10:
+	inc c
+	sub 10
+	jr nc,PreParser_Get10
+	add a,10
+	;C is number of 10s, A is remainder
+	push af
+	ld a,t0
+	add a,c
+	ld (hl),a
+	pop af
+	;Now second number
+	inc hl
+	add a,t0
+	ld (hl),a
+	;Comma time
+	inc hl
+	ld (hl),tComma
+	;Done...Continue for more tokens
+	ld a,1
+	ld (parserHookPtr+3),a
+	jr PreParser_Replace_NextToken
+
+
+
+
+PreParser_CheckArcUnarc2:
 	cp tArchive
 	jr z, PreParser_SkipToken
 	cp tUnarchive
@@ -3096,6 +3419,15 @@ PreParser_Restore:
 ;	ld bc,9
 ;	ldir
 ;	B_CALL PopRealO1
+	b_call PushRealO1
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ld hl, 34
+	add hl, de
+	ld a, (hl)
+	ld (iy+asm_Flag1), a
+	b_call PopRealO1
 	B_CALL ChkFindSym
 	ex de,hl
 	ld (sizebytes),hl
@@ -3120,12 +3452,15 @@ PreParser_Restore_Loop:
 	jr nz,PreParser_Restore_NextToken
 	;We found a Real token
 	;Now check if it has "##," after it.
+
+
+
 	inc hl
 	ld a,(hl)
 ;	cp t0
 ;	jr c,PreParser_Restore_NextToken
 	cp t4
-	jr nz,PreParser_Restore_NextToken
+	jr nz, CheckOmniBolicNoDec
 ;	cp t9+1
 ;	jr nc,PreParser_Restore_NextToken
 	;Next # check
@@ -3138,7 +3473,7 @@ PreParser_Restore_Loop:
 	cp t2
 	jr z,PreParser_Restore_Continue
 	cp t3
-	jr nz,PreParser_Restore_NextToken
+	jr nz, CheckOmniBolic
 PreParser_Restore_Continue:
 	push af
 	inc hl
@@ -3182,6 +3517,75 @@ PreParser_Restore_Continue:
 	ld (bufferend),bc
 	;Done...Continue for more tokens
 	jr PreParser_Restore_NextToken
+
+
+CheckOmniBolic:
+	dec hl
+CheckOmniBolicNoDec:
+	ld a, (iy+asm_Flag1)
+	cp 0
+	jr z, PreParser_Restore_NextToken
+	ld a,(hl)
+	cp t0
+	jr c,PreParser_Restore_NextToken
+	cp t9+1
+	jr nc,PreParser_Restore_NextToken
+	;Next # check
+	inc hl
+	ld a,(hl)
+	cp t0
+	jr c,PreParser_Restore_NextToken
+	cp t9+1
+	jr nc,PreParser_Restore_NextToken
+	inc hl
+	ld a,(hl)
+	cp tComma
+	jr nz,PreParser_Restore_NextToken
+	;We have a real(##,arguments)
+	dec hl
+	dec hl
+	ld a,(hl)
+	sub t0
+	or a
+	jr z,PreParser_Restore_Add10_Skip
+	ld b,a
+	xor a
+PreParser_Restore_Add10:
+	add a,10
+	djnz PreParser_Restore_Add10
+PreParser_Restore_Add10_Skip:
+	inc hl
+	ld c,a
+	ld a,(hl)
+	sub t0
+	add a,c
+	dec hl
+	ld (oldtoken),a
+	ld de,3
+	push hl
+	B_CALL DelMem
+	pop hl
+	dec hl
+	ld a,(oldtoken)
+	add a,0CFh
+	ld (hl),a
+	ld bc,(sizechange)
+	dec bc
+	dec bc
+	dec bc
+	ld (sizechange),bc
+	ld bc,(bufferend)
+	dec bc
+	dec bc
+	dec bc
+	ld (bufferend),bc
+	;Done...Continue for more tokens
+
+
+
+
+	jr PreParser_Restore_NextToken
+
 PreParser_NotAsm:
 	inc hl
 	ld de,5
