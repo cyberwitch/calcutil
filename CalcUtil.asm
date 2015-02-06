@@ -1,4 +1,4 @@
-; CalcUtil v2.00b4
+; CalcUtil v2.00
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -132,7 +132,7 @@ StartApp:
 	set textInverse, (IY + textFlags)
 	call PutSApp
 	res textInverse, (IY + textFlags)
-;	b_call NewLine
+	b_call NewLine
 	ld hl, One
 	call PutSApp
 	;res textInverse, (IY + textFlags)
@@ -982,7 +982,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.00b4", 0
+	db "CalcUtil v2.00", 0
 One:
 	db "1:", 0
 Install:
