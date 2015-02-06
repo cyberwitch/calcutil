@@ -1,4 +1,4 @@
-; CalcUtil v2.00b3
+; CalcUtil v2.00b4
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -982,7 +982,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.00b3", 0
+	db "CalcUtil v2.00b4", 0
 One:
 	db "1:", 0
 Install:
@@ -1723,6 +1723,13 @@ FindName:
 	b_call ParsePrgmName
 
 ParserEntrypoint:
+	b_call ChkFindSym
+	jr nc, Good
+	ld a, ProtProgObj
+	ld (OP1), a
+	b_call ChkFindSym
+	ret c
+Good:
 	b_call PushRealO1
 	ld hl, AppVarName
 	rst rMov9ToOP1
@@ -1913,8 +1920,9 @@ YesWriteback:
 	jr z, DeleteTemporary
 	b_call PopRealO1
 	b_call OP2ToOP3
+	b_call PushRealO1
 	call TempToOriginalAsm
-	b_call OP4ToOP1
+	b_call PopRealO1
 	b_call ChkFindSym
 	b_call Arc_Unarc
 	or 1
@@ -1933,15 +1941,26 @@ DeleteTemporary:
 	ret
 
 TempToOriginalAsm:
+	b_call PushRealO1
 	b_call ChkFindSym
 	b_call DelVarArc
+	b_call PopRealO1
 	b_call PushRealO1
 	b_call OP3ToOP1
 	b_call ChkFindSym
 	push hl
 	b_call PopRealO1
+	b_call PushRealO1
 	pop hl
+	ld a, (OP1)
+	push af
 	call renameprog
+	b_call PopRealO1
+	ld a, 5
+	ld (OP1), a
+	b_call ChkFindSym
+	pop af
+	ld (hl), a
 	ret
 
 ;TempToOriginalAsm:

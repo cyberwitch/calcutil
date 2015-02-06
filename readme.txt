@@ -1,4 +1,4 @@
-CalcUtil v2.00b3
+CalcUtil v2.00b4
 (C) 2007 Daniel Weisz.
 
 	This program is free software; you can redistribute it and/or modify
