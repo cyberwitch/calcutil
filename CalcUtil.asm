@@ -1,4 +1,4 @@
-; CalcUtil v2.00b2
+; CalcUtil v2.00b3
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -281,9 +281,32 @@ InstallHooks2:
 
 
 
-
-VarGone:
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr nc, FoundIt
 	call NewAppVar										;Delete and make a new UtilVar
+	jr SizeTwoOk
+FoundIt:
+	xor a
+	cp b
+	jr z, ItsUnarchived
+	b_call Arc_Unarc
+	b_call ChkFindSym
+ItsUnarchived:
+	ld a, (de)
+	cp 28h
+	jr z, SizeOneOk
+	call NewAppVar
+	jr SizeTwoOk
+SizeOneOk:
+	inc de
+	ld a, (de)
+	cp 0
+	jr z, SizeTwoOk
+	call NewAppVar
+SizeTwoOk:
+
 
 
 
@@ -297,7 +320,7 @@ VarGone:
 	ld b, a
 	in a, (6)
 	cp b
-	jr z, NoParserHook
+	jr z, InstallParser
 
 
 
@@ -309,8 +332,21 @@ VarGone:
 	inc de
 	inc de
 	ldir
+	jr InstallParser
 
 NoParserHook:
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ex de, hl
+	inc hl
+	inc hl
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+InstallParser:
 	ld hl, ParserHook
 	in a, (6)
 	b_call EnableParserHook
@@ -331,7 +367,7 @@ NoParserHook:
 	ld b, a
 	in a, (6)
 	cp b
-	jr z, NoRawKeyHook
+	jr z, InstallRawKey
 
 
 
@@ -344,8 +380,24 @@ NoParserHook:
 	ex de, hl
 	ld hl, rawKeyHookPtr
 	ldir
+	jr InstallRawKey
 
 NoRawKeyHook:
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ex de, hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+InstallRawKey:
 	ld hl, RawKeyHook
 	in a, (6)
 	b_call EnableRawKeyHook
@@ -364,7 +416,7 @@ NoRawKeyHook:
 	ld b, a
 	in a, (6)
 	cp b
-	jr z, NoAppChangeHook
+	jr z, InstallAppChange
 
 
 	ld hl, AppVarName
@@ -376,15 +428,27 @@ NoRawKeyHook:
 	ex de, hl
 	ld hl, appChangeHookPtr
 	ldir
+	jr InstallAppChange
 
 NoAppChangeHook:
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ld hl, 31
+	add hl, de
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+InstallAppChange:
 	ld hl, AppChangeHook
 	in a, (6)
 	b_call EnableAppChangeHook
 	xor a
 	ld (appChangeHookPtr + 3), a
 
-
+leave:
 
 	;b_call DisableGetKeyHook
 
@@ -418,6 +482,63 @@ UninstallHooks:											;Uninstall all those hooks
 	b_call DisableAppChangeHook
 	b_call DisableRawKeyHook
 	;b_call DisableGetKeyHook
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, NoVar2
+	xor a
+	cp b
+	jr z, NoArcVar
+	b_call Arc_Unarc
+	b_call ChkFindSym
+NoArcVar:
+	ex de, hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld a, (hl)
+	cp 0
+	jr z, NoParser
+	dec hl
+	ld d, (hl)
+	dec hl
+	ld e, (hl)
+	ex de, hl
+	b_call EnableParserHook
+	ex de, hl
+	inc hl
+	inc hl
+NoParser:
+	inc hl
+	inc hl
+	inc hl
+	ld a, (hl)
+	cp 0
+	jr z, NoRawKey
+	dec hl
+	ld d, (hl)
+	dec hl
+	ld e, (hl)
+	ex de, hl
+	b_call EnableRawKeyHook
+	ex de, hl
+	inc hl
+	inc hl
+NoRawKey:
+	ld de, 26
+	add hl, de
+	ld a, (hl)
+	cp 0
+	jr z, NoAppChange
+	dec hl
+	ld d, (hl)
+	dec hl
+	ld e, (hl)
+	ex de, hl
+	b_call EnableAppChangeHook
+NoAppChange:
+NoVar2:
 	ld hl, Offscrpt
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -725,42 +846,42 @@ AboutScreen:
 
 
 NewAppVar:
-	ld hl, 0
-	ld (AppBackUpScreen+10), hl
-	xor a
-	ld (AppBackUpScreen+12), a
+;	ld hl, 0
+;	ld (AppBackUpScreen+10), hl
+;	xor a
+;	ld (AppBackUpScreen+12), a
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
 	jr c, Create									;If appvar exists, try to retain backup flag; otherwise, go to Create
-	xor a
-	cp b
-	jr z, NotArccc
-	b_call Arc_Unarc
-	b_call ChkFindSym
-NotArccc:
-	push hl
-	push de
-	ld hl, 9
-	add hl, de
-	ld a, (hl)
-	ld (AppBackUpScreen+10), a
-	inc hl
-	ld a, (hl)
-	ld (AppBackUpScreen+11), a
-	ld de, 24
-	add hl, de
-	ld a, (hl)
-	ld (AppBackUpScreen+12), a
-	pop de
-	pop hl
+;	xor a
+;	cp b
+;	jr z, NotArccc
+;	b_call Arc_Unarc
+;	b_call ChkFindSym
+;NotArccc:
+;	push hl
+;	push de
+;	ld hl, 9
+;	add hl, de
+;	ld a, (hl)
+;	ld (AppBackUpScreen+10), a
+;	inc hl
+;	ld a, (hl)
+;	ld (AppBackUpScreen+11), a
+;	ld de, 24
+;	add hl, de
+;	ld a, (hl)
+;	ld (AppBackUpScreen+12), a
+;	pop de
+;	pop hl
 	b_call DelVarArc
 	ld hl, AppVarName
 	rst rMov9ToOP1
 Create:
 	ld hl, 40
 	b_call CreateAppVar
-	push de	
+;	push de	
 	inc de
 	inc de
 	xor a
@@ -768,18 +889,18 @@ Create:
 clearloop:
 	ld (de), a
 	djnz clearloop
-	ld a, (AppBackUpScreen+10)
-	pop de
-	ld hl, 9
-	add hl, de
-	ld (hl), a
-	ld a, (AppBackUpScreen+11)
-	inc hl
-	ld (hl), a
-	ld de, 24
-	add hl, de
-	ld a, (AppBackUpScreen+12)
-	ld (hl), a
+;	ld a, (AppBackUpScreen+10)
+;	pop de
+;	ld hl, 9
+;	add hl, de
+;	ld (hl), a
+;	ld a, (AppBackUpScreen+11)
+;	inc hl
+;	ld (hl), a
+;	ld de, 24
+;	add hl, de
+;	ld a, (AppBackUpScreen+12)
+;	ld (hl), a
 	ret
 
 AboutText1:
@@ -861,7 +982,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.00b2", 0
+	db "CalcUtil v2.00b3", 0
 One:
 	db "1:", 0
 Install:
@@ -1811,38 +1932,90 @@ DeleteTemporary:
 	or 1
 	ret
 
-
-
 TempToOriginalAsm:
-	b_call OP1ToOP4
 	b_call ChkFindSym
 	b_call DelVarArc
+	b_call PushRealO1
 	b_call OP3ToOP1
 	b_call ChkFindSym
-	ex de, hl
-	ld c, (hl)
-	inc hl
-	ld b, (hl)
-	inc hl
 	push hl
-	push bc
-	push bc
-	b_call OP4ToOP1
+	b_call PopRealO1
 	pop hl
-	b_call CreateProg
-	inc de
-	inc de
-	pop bc
-	pop hl
-	ld a, b
-	or c
-	jr z, ItsEmpty2
-	ldir
-ItsEmpty2:
-	b_call OP3ToOP1
-	b_call ChkFindSym
-	b_call DelVarArc
+	call renameprog
 	ret
+
+;TempToOriginalAsm:
+;	b_call OP1ToOP4
+;	b_call ChkFindSym
+;	b_call DelVarArc
+;	b_call OP3ToOP1
+;	b_call ChkFindSym
+;	ld de, -7
+;	add hl, de
+;	push hl
+;	b_call OP4ToOP1
+;	pop hl
+;	ld de, OP1+1
+;	ld b, 0
+;CopyNameLoop:
+;	ld a, (de)
+;	cp 0
+;	jr z, EndCopyNameLoop
+;	ld (hl), a
+;	inc de
+;	dec hl
+;	inc b
+;	jr CopyNameLoop
+;EndCopyNameLoop:
+;	ld a, 8
+;	sub a, b
+;	ret z
+;	ld c, a
+;	ld b, 0
+;	scf
+;	ccf
+;	sbc hl, bc
+;	ld e, c
+;	ld d, b
+;	push hl
+;	push de
+;	b_call DelMem
+;	pop de
+;	pop hl
+;	add hl, de
+;	ld (hl), e
+;	ret
+
+;TempToOriginalAsm:
+;	b_call OP1ToOP4
+;	b_call ChkFindSym
+;	b_call DelVarArc
+;	b_call OP3ToOP1
+;	b_call ChkFindSym
+;	ex de, hl
+;	ld c, (hl)
+;	inc hl
+;	ld b, (hl)
+;	inc hl
+;	push hl
+;	push bc
+;	push bc
+;	b_call OP4ToOP1
+;	pop hl
+;	b_call CreateProg
+;	inc de
+;	inc de
+;	pop bc
+;	pop hl
+;	ld a, b
+;	or c
+;	jr z, ItsEmpty2
+;	ldir
+;ItsEmpty2:
+;	b_call OP3ToOP1
+;	b_call ChkFindSym
+;	b_call DelVarArc
+;	ret
 
 
 
