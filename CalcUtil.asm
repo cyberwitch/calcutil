@@ -1,4 +1,4 @@
-; CalcUtil v2.02
+; CalcUtil v2.03
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -123,6 +123,7 @@ _BufDelete		equ 4912h
 _BufInsert		equ 4909h
 
 rMov9ToOP1 equ rMOV9TOOP1
+
 
 StartApp:
 	b_call ClrLCDFull
@@ -932,14 +933,13 @@ RestoreHooks:
 	push hl
 	in a, (6)
 	ld hl, AppChangeHook
-	ld (appChangeHookPtr), hl
-	ld (appChangeHookPtr+2), a
+	b_call EnableAppChangeHook
+	in a, (6)
 	ld hl, RawKeyHook
-	ld (rawKeyHookPtr), hl
-	ld (rawKeyHookPtr+2), a
+	b_call EnableRawKeyHook
+	in a, (6)
 	ld hl, ParserHook
-	ld (parserHookPtr), hl
-	ld (parserHookPtr+2), a
+	b_call EnableParserHook
 	pop hl
 	pop af
 	ret
@@ -982,7 +982,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.02", 0
+	db "CalcUtil v2.03", 0
 One:
 	db "1:", 0
 Install:
@@ -1032,6 +1032,7 @@ AppChangeHook:
 	push de
 	push hl
 
+	call RestoreHooks
 
 	cp kMode
 	jr z, ChainAppChangeHook
@@ -1077,6 +1078,7 @@ NotError:
 
 
 	set 7,(iy+28h)
+
 
 
 	ld a, progobj
@@ -1339,8 +1341,6 @@ ArcProgWriteback:
 	jr z, DelTempNoSave
 	jr FinishWriteback
 
-
-
 TempToOriginal:
 	ld hl, AppVarName
 	rst rMov9ToOP1
@@ -1356,36 +1356,73 @@ TempToOriginal:
 	ld a, ProgObj
 	ld (OP1), a
 	ld (OP3), a
-	b_call OP1ToOP4
+	b_call PushRealO1
 	b_call ChkFindSym
 	b_call DelVarArc
+	b_call PopRealO1
+	b_call PushRealO1
 	b_call OP3ToOP1
 	b_call ChkFindSym
-	ex de, hl
-	ld c, (hl)
-	inc hl
-	ld b, (hl)
-	inc hl
 	push hl
-	push bc
-	push bc
-	b_call OP4ToOP1
+	b_call PopRealO1
+	b_call PushRealO1
 	pop hl
-	b_call CreateProg
-	inc de
-	inc de
-	pop bc
-	pop hl
-	ld a, b
-	or c
-	jr z, ItsEmpty
-	ldir
-ItsEmpty:
-	b_call OP3ToOP1
+	ld a, (OP1)
+	push af
+	call renameprog
+	b_call PopRealO1
+	ld a, 5
+	ld (OP1), a
 	b_call ChkFindSym
-	b_call DelVarArc
-	call CleanUp
+	pop af
+	ld (hl), a
 	ret
+
+;TempToOriginal:
+;	ld hl, AppVarName
+;	rst rMov9ToOP1
+;	b_call ChkFindSym
+;	ld hl, 13
+;	add hl, de
+;	ld de, OP1+1
+;	ld bc, 8
+;	ldir
+;	ld de, OP3+1
+;	ld bc, 8
+;	ldir
+;	ld a, ProgObj
+;	ld (OP1), a
+;	ld (OP3), a
+;	b_call OP1ToOP4
+;	b_call ChkFindSym
+;	b_call DelVarArc
+;	b_call OP3ToOP1
+;	b_call ChkFindSym
+;	ex de, hl
+;	ld c, (hl)
+;	inc hl
+;	ld b, (hl)
+;	inc hl
+;	push hl
+;	push bc
+;	push bc
+;	b_call OP4ToOP1
+;	pop hl
+;	b_call CreateProg
+;	inc de
+;	inc de
+;	pop bc
+;	pop hl
+;	ld a, b
+;	or c
+;	jr z, ItsEmpty
+;	ldir
+;ItsEmpty:
+;	b_call OP3ToOP1
+;	b_call ChkFindSym
+;	b_call DelVarArc
+;	call CleanUp
+;	ret
 
 DelTempNoSave:
 	ld hl, AppVarName
@@ -1597,6 +1634,7 @@ AppChangePop:
 
 ParserHook:
 	db 83h
+	call RestoreHooks
 	or a
 	jr nz, Function
 	ld de, parseVar+1
@@ -2737,7 +2775,7 @@ Save2:
 
 RawKeyHook:
 	db 83h
-
+	call RestoreHooks
 	cp kAppsMenu
 	jr z, App2Fin
 	cp kQuit
@@ -2785,9 +2823,9 @@ Startup:
 
 CheckNum:
 	cp k1
-	jr c, ChainRawKey
+	jr c, ProgList
 	cp k9 + 1
-	jr nc, ChainRawKey
+	jr nc, ProgList
 
 	ld (AppBackUpScreen), a
 
@@ -2795,6 +2833,7 @@ CheckNum:
 	in a, (4)
 	bit 3, a
 	jr nz, ChainRawKeyPop
+
 
 
 ;	ld hl, AppVarName
@@ -2845,7 +2884,8 @@ NotArc12:
 	ld hl, PROGLIST
 	rst rMov9ToOP1
 	b_call ChkFindSym
-	jr c, NoMatch
+	ld a, (AppBackUpScreen)
+	ret c
 	ld a, (AppBackUpScreen)
 	add -5Eh
 	ld (AppBackUpScreen), a
@@ -2999,12 +3039,247 @@ NotAround:
 
 
 
+ProgList:
+	push af
+	ld a, (MenuCurrent)
+	cp 3
+	jr nz, ChainRawKeyPop
+	ld a, (MenuCurrent+1)
+	cp 2
+	jr z, ChainRawKeyPop
+	pop af
+	cp kcapa
+	jr z, Archive
+	cp kadd
+	jr z, Description
+	cp kcapl
+	jr nz, ChainRawKey
+	ld hl, 85E7h
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	xor a
+	cp b
+	jr nz, ArchivedLock
+	ld a, (hl)
+	cp 5
+	jr z, Lock
+	ld (hl), 5
+	xor a
+	ret
+Lock:
+	ld (hl), 6
+	xor a
+	ret
+ArchivedLock:
+	b_call CloseEditBuf
+	ld hl, 85E7h
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	b_call Arc_Unarc
+	ld hl, 85E7h
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ld a, (hl)
+	cp 5
+	jr z, ArcLock
+	ld (hl), 5
+	b_call Arc_Unarc
+	xor a
+	ret
+ArcLock:
+	ld (hl), 6
+	b_call Arc_Unarc
+	xor a
+	ret
+Archive:
+	b_call CloseEditBuf
+	ld a, 2
+	ld (curCol), a
+	ld hl, 85E7h
+	rst rMov9ToOP1
+	xor a
+	ld (OP1+9), a
+	b_call ChkFindSym
+	xor a
+	cp b
+	jr z, NotArchived
+	b_call Arc_Unarc
+	ld hl, OP1+1
+	xor a
+	ld (OP1+9), a
+FindEndLoop:
+	inc hl
+	ld b, (hl)
+	inc b
+	djnz FindEndLoop
+	ld (hl), ' '
+	inc hl
+	ld (hl), b
+	ld hl, OP1+1
+	b_call PutS
+	xor a
+	ret
+NotArchived:
+	b_call Arc_Unarc
+	xor a
+	ld (OP1+9), a
+	ld a, '*'
+	ld (OP1), a
+	ld hl, OP1
+	b_call PutS
+	xor a
+	ret
+Description:
+	ld a, (85E8h)
+	cp '@'
+	jr nz, NotEmpty
+	xor a
+	ret
+NotEmpty:
+	b_call ClrLCDFull
+	ld hl, 0
+	ld (curRow), hl
+	ld hl, Name
+	call PutSApp
+	ld hl, 85E7h
+	rst rMov9ToOP1
+	xor a
+	ld (OP1+9), a
+	ld hl, OP1+1
+NameLengthLoop:
+	inc hl
+	inc a
+	ld b, (hl)
+	inc b
+	djnz NameLengthLoop
+	ld (AppBackUpScreen), a
+	ld hl, OP1+1
+	b_call PutS
+	b_call NewLine
+	ld hl, Locked
+	call PutSApp
+	ld hl, No
+	ld a, (OP1)
+	cp 5
+	jr z, Unlocked
+	ld hl, Yes
+Unlocked:
+	call PutSApp
+	b_call NewLine
+	ld hl, Archived
+	call PutSApp
+	b_call ChkFindSym
+	xor a
+	cp b
+	jr z, Unarchived
+	ld hl, Yes
+	call PutSApp
+	b_call NewLine
+	ld hl, Size
+	call PutSApp
+	ex de, hl
+	call LoadCIndPaged_inc
+	call LoadDEIndPaged_inc
+	ld de, 6
+	call BHL_Plus_DE
+	call LoadCIndPaged_inc
+	ld e, c
+	call BHL_Plus_DE
+	call LoadDEIndPaged_inc
+	push bc
+	push hl
+	push de
+	ld hl, 9
+	ld a, (AppBackUpScreen)
+	ld e, a
+	ld d, 0
+	add hl, de
+	pop de
+	add hl, de
+	b_call DispHL
+	b_call NewLine
+	ld hl, Type
+	call PutSApp
+	pop hl
+	pop bc
+	call LoadCIndPaged_inc
+	ld a, 0BBh
+	cp c
+	jr nz, ArcBasic
+	call LoadCIndPaged_inc
+	ld a, 06Dh
+	cp c
+	jr nz, ArcBasic
+	ld hl, Assembly
+	call PutSApp
+	jr Wait
+ArcBasic:
+	ld hl, Basic
+	call PutSApp
+	jr Wait
+Unarchived:
+	ld hl, No
+	call PutSApp
+	b_call NewLine
+	ld hl, Size
+	call PutSApp
+	ex de, hl
+	ld e, (hl)
+	inc hl
+	ld d, (hl)
+	push hl
+	push de
+	ld hl, 9
+	ld a, (AppBackUpScreen)
+	ld e, a
+	ld d, 0
+	add hl, de
+	pop de
+	add hl, de
+	b_call DispHL
+	b_call NewLine
+	ld hl, Type
+	call PutSApp
+	pop hl
+	inc hl
+	ld a, 0BBh
+	cp (hl)
+	jr nz, UnarcBasic
+	inc hl
+	ld a, 06Dh
+	cp (hl)
+	jr nz, UnarcBasic
+	ld hl, Assembly
+	call PutSApp
+	jr Wait
+UnarcBasic:
+	ld hl, Basic
+	call PutSApp
+Wait:
+	b_call GetKey
+	ld a, kPrgm
+	ret
 
 
 
-
-
-
+Name:
+	db "Name: ", 0
+Locked:
+	db "Locked: ", 0
+Archived:
+	db "Archived: ", 0
+Yes:
+	db "Yes", 0
+No:
+	db "No", 0
+Size:
+	db "Size: ", 0
+Type:
+	db "Type: ", 0
+Assembly:
+	db "Assembly", 0
+Basic:
+	db "Basic", 0
 
 ChainRawKeyPop:
 	pop af
@@ -3065,6 +3340,7 @@ Quitting:
 	cp kPrgmInput
 	ld a, kQuit
 	jr nz, ReturnZ
+	b_call CloseEditBuf
 	call CleanUp
 	ld a, kQuit
 	cp a
@@ -3407,6 +3683,8 @@ AppVarStart:
 ;	b_call DelVarArc
 ;	ret
 ;QuitHook4:
+	bit 4,(IY+apdFlags)
+	ret nz
 	xor a
 	ld (0FFFCh), a
 	bit getKeyBit, (iy + getKeyHookFlag)
@@ -3708,6 +3986,22 @@ PreParser_End:
 ;	xor a
 ;	inc a
 ;	ret
+SkipCompAsm:
+	inc hl
+	push hl
+	ld de,(bufferend)
+	or a
+	sbc hl,de
+	pop hl
+	jr z,PreParser_End
+	ld a, (hl)
+	cp tColon
+	jr z, PreParser_Replace_Loop
+	cp tRParen
+	jr z, PreParser_Replace_Loop
+	cp tEnter
+	jr z, PreParser_Replace_Loop
+	jr SkipCompAsm
 PreParser_QuoteFound:
 	;Toggle flag
 	push af
@@ -3739,6 +4033,10 @@ PreParser_CheckAsm:
 	sbc hl,de
 	pop hl
 	jr z,PreParser_End
+
+	ld a, (hl)
+	cp tasmComp
+	jr z, SkipCompAsm
 
 	ld a, (hl)
 	cp tasm
