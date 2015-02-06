@@ -1,4 +1,4 @@
-; CalcUtil v2.04
+; CalcUtil v2.05
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -123,6 +123,11 @@ _BufDelete		equ 4912h
 _BufInsert		equ 4909h
 
 rMov9ToOP1 equ rMOV9TOOP1
+
+
+
+
+
 
 
 StartApp:
@@ -255,8 +260,8 @@ InstallHooks:
 	jr nz, ShowWarning
 	bit rawKeyBit, (iy + rawKeyHookFlag)
 	jr nz, ShowWarning
-	;bit getKeyBit, (iy + getKeyHookFlag)
-	;jr nz, ShowWarning
+	bit getKeyBit, (iy + getKeyHookFlag)
+	jr nz, ShowWarning
 	;bit menuBit, (iy + menuHookFlag)
 	;jr nz, ShowWarning
 
@@ -449,6 +454,50 @@ InstallAppChange:
 	xor a
 	ld (appChangeHookPtr + 3), a
 
+
+
+
+
+
+	bit getKeyBit, (IY + getKeyHookFlag)		;Try to save the current app change hook
+	jr z, NoGetKeyHook
+	ld hl, getKeyHookPtr + 2
+	ld a, (hl)
+	ld b, a
+	in a, (6)
+	cp b
+	jr z, InstallGetKey
+
+
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ld bc, 3
+	ld hl, 35
+	add hl, de
+	ex de, hl
+	ld hl, getKeyHookPtr
+	ldir
+	jr InstallGetKey
+
+NoGetKeyHook:
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ld hl, 35
+	add hl, de
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+	inc hl
+	ld (hl), 0
+InstallGetKey:
+	ld hl, MainGetKeyHook
+	in a, (6)
+	b_call EnableGetKeyHook
+	xor a
+	ld (getKeyHookPtr + 3), a
+
 leave:
 
 	;b_call DisableGetKeyHook
@@ -482,7 +531,7 @@ UninstallHooks:											;Uninstall all those hooks
 	b_call DisableParserHook
 	b_call DisableAppChangeHook
 	b_call DisableRawKeyHook
-	;b_call DisableGetKeyHook
+	b_call DisableGetKeyHook
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -538,7 +587,24 @@ NoRawKey:
 	ld e, (hl)
 	ex de, hl
 	b_call EnableAppChangeHook
+	ex de, hl
+	inc hl
+	inc hl
 NoAppChange:
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld a, (hl)
+	cp 0
+	jr z, NoGetKey
+	dec hl
+	ld d, (hl)
+	dec hl
+	ld e, (hl)
+	ex de, hl
+	b_call EnableGetKeyHook
+NoGetKey:
 NoVar2:
 	ld hl, Offscrpt
 	rst rMov9ToOP1
@@ -940,6 +1006,9 @@ RestoreHooks:
 	in a, (6)
 	ld hl, ParserHook
 	b_call EnableParserHook
+;	in a, (6)
+;	ld hl, MainGetKeyHook
+;	b_call EnableGetKeyHook
 	pop hl
 	pop af
 	ret
@@ -982,7 +1051,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.04", 0
+	db "CalcUtil v2.05", 0
 One:
 	db "1:", 0
 Install:
@@ -1030,7 +1099,14 @@ AppChangeHook:
 	push af
 	push bc
 	push de
-	push hl
+	push hl		  
+
+	cp 0
+;	jr nz, NotQuittingAnApp
+	in a, (6)
+	ld hl, MainGetKeyHook
+	b_call EnableGetKeyHook
+NotQuittingAnApp:
 
 ;	call RestoreHooks
 
@@ -2775,6 +2851,7 @@ Save2:
 
 RawKeyHook:
 	db 83h
+	set 1,(iy+asm_Flag1)
 	call RestoreHooks
 	cp kAppsMenu
 	jr z, App2Fin
@@ -2889,9 +2966,20 @@ NotArc12:
 	ld a, (AppBackUpScreen)
 	add -5Eh
 	ld (AppBackUpScreen), a
+	xor a
+	ld (AppBackUpScreen+19), a
 	bit editOpen, (IY + editFlags)
 	jr z, NoEdit
-	b_call CloseEditBuf
+	inc a
+	ld (AppBackUpScreen+19), a
+	ld hl,(editCursor)
+	ld de,(editTop)
+	or a
+	sbc hl,de
+	ld (AppBackUpScreen+20), hl
+	ld de,(iMathPtr1)
+	ld (AppBackUpScreen+22), de
+	B_CALL CloseEditEqu
 NoEdit:
 	ld hl, PROGLIST
 	rst rMov9ToOP1
@@ -3030,6 +3118,9 @@ NoMatch:
 	jr c, NotAround
 	b_call DelVarArc
 NotAround:
+	ld a, (AppBackUpScreen+19)
+	cp 0
+	call nz, ReopenEditBuffer
 	ld a, (AppBackUpScreen)
 	add 5Eh
 	cp a
@@ -3047,11 +3138,14 @@ ProgList:
 	ld a, (MenuCurrent+1)
 	cp 2
 	jr z, ChainRawKeyPop
+
+;	call UpdateInfo
+
 	pop af
 	cp kcapa
 	jr z, Archive
-	cp kadd
-	jr z, Description
+;	cp kadd
+;	jr z, Description
 	cp kcapl
 	jr nz, ChainRawKey
 	ld hl, 85E7h
@@ -3063,15 +3157,38 @@ ProgList:
 	ld a, (hl)
 	cp 5
 	jr z, Lock
-	ld (hl), 5
+	ld a, 5
+	ld (hl), a
+	ld (85E7h), a
+	push af
+	call UpdateInfo
+	pop af
 	xor a
 	ret
 Lock:
-	ld (hl), 6
-	xor a
+	ld a, 6
+	ld (hl), a
+	ld (85E7h), a
+	push af
+	call UpdateInfo		
+	pop af
+	ld a, (MenuCurrent+1)
+	cp 0
+	ret z
+	ld a, (MenuCurrent+2)
+	dec a
+	ld (MenuCurrent+2), a
+	ld a, kcapa
 	ret
 ArchivedLock:
-	b_call CloseEditBuf
+	ld hl,(editCursor)
+	ld de,(editTop)
+	or a
+	sbc hl,de
+	ld (AppBackUpScreen+20), hl
+	ld de,(iMathPtr1)
+	ld (AppBackUpScreen+22), de
+	B_CALL CloseEditEqu
 	ld hl, 85E7h
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -3082,17 +3199,46 @@ ArchivedLock:
 	ld a, (hl)
 	cp 5
 	jr z, ArcLock
-	ld (hl), 5
+	ld a, 5
+	ld (hl), a
+	ld (85E7h), a
+	push af
+	b_call PushRealO1
+	call UpdateInfo
+	b_call PopRealO1
+	pop af
+	b_call ChkFindSym
 	b_call Arc_Unarc
-	xor a
-	ret
+	jr ReopenEditBuffer	
 ArcLock:
-	ld (hl), 6
-	b_call Arc_Unarc
+	ld a, 6
+	ld (hl), a
+	ld (85E7h), a
+	push af
+	b_call PushRealO1
+	call UpdateInfo
+	b_call PopRealO1
+	pop af
+	b_call ChkFindSym
+	b_call Arc_Unarc		
+	call ReopenEditBuffer
+	ld a, (MenuCurrent+1)
+	cp 0
+	ret z
 	xor a
+	ld (MenuCurrent+1), a
+	b_call callMain
+	ld a, kRight
 	ret
 Archive:
-	b_call CloseEditBuf
+	ld hl,(editCursor)
+	ld de,(editTop)
+	or a
+	sbc hl,de
+	ld (AppBackUpScreen+20), hl
+	ld de,(iMathPtr1)
+	ld (AppBackUpScreen+22), de
+	B_CALL CloseEditEqu
 	ld a, 2
 	ld (curCol), a
 	ld hl, 85E7h
@@ -3117,8 +3263,7 @@ FindEndLoop:
 	ld (hl), b
 	ld hl, OP1+1
 	b_call PutS
-	xor a
-	ret
+	jr ReopenEditBuffer	
 NotArchived:
 	b_call Arc_Unarc
 	xor a
@@ -3127,56 +3272,308 @@ NotArchived:
 	ld (OP1), a
 	ld hl, OP1
 	b_call PutS
+
+; Source code adapted from Omnicalc v1.10m
+; (C) 2002-2003 Michael Vincent.
+
+ReopenEditBuffer:
+	ld de, (AppBackUpScreen+22)
+	B_CALL EditProg
+	set editOpen,(iy+editFlags)
+	ld hl,(iMathPtr1)
+	inc hl
+	inc hl
+	ld (editTop),hl
+	ld hl,(iMathPtr2)
+	ld (editCursor),hl
+	ex de,hl
+	ld hl,(iMathPtr3)
+	B_CALL CpHLDE
+	jr nc,SetupEditProgSwapSkip
+	ex de,hl
+SetupEditProgSwapSkip:
+	ld (editBtm),hl
+	ld (editTail),hl
+	ld hl,(editCursor)
+	ld de,(editTop)
+	or a
+	sbc hl,de
+	ex de,hl
+	ld hl, (AppBackUpScreen+20)
+	or a
+	sbc hl,de
+	push af
+	add hl,de
+	pop af
+	jr z,csc_Select_GoRight_AllDone
+csc_Select_GoRight:
+	push hl
+	B_CALL BufLeft
+	ld hl,(editCursor)
+	ld de,(editTop)
+	or a
+	sbc hl,de
+	ex de,hl	;DE is new offset, HL will be old
+	pop hl
+	or a
+	sbc hl,de
+	push af
+	add hl,de
+	pop af
+	jr nz,csc_Select_GoRight
+csc_Select_GoRight_AllDone:
+;	call ShowTextShadow
 	xor a
+	ei
 	ret
-Description:
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;Description:
+;	ld a, (85E8h)
+;	cp '@'
+;	jr nz, NotEmpty
+;	xor a
+;	ret
+;NotEmpty:
+;	b_call ClrLCDFull
+;	ld hl, 0
+;	ld (curRow), hl
+;	ld hl, Name
+;	call PutSApp
+;	ld hl, 85E7h
+;	rst rMov9ToOP1
+;	xor a
+;	ld (OP1+9), a
+;	ld hl, OP1+1
+;NameLengthLoop:
+;	inc hl
+;	inc a
+;	ld b, (hl)
+;	inc b
+;	djnz NameLengthLoop
+;	ld (AppBackUpScreen), a
+;	ld hl, OP1+1
+;	b_call PutS
+;	b_call NewLine
+;	ld hl, Locked
+;	call PutSApp
+;	ld hl, No
+;	ld a, (OP1)
+;	cp 5
+;	jr z, Unlocked
+;	ld hl, Yes
+;Unlocked:
+;	call PutSApp
+;	b_call NewLine
+;	ld hl, Archived
+;	call PutSApp
+;	b_call ChkFindSym
+;	xor a
+;	cp b
+;	jr z, Unarchived
+;	ld hl, Yes
+;	call PutSApp
+;	b_call NewLine
+;	ld hl, Size
+;	call PutSApp
+;	ex de, hl
+;	call LoadCIndPaged_inc
+;	call LoadDEIndPaged_inc
+;	ld de, 6
+;	call BHL_Plus_DE
+;	call LoadCIndPaged_inc
+;	ld e, c
+;	call BHL_Plus_DE
+;	call LoadDEIndPaged_inc
+;	push bc
+;	push hl
+;	push de
+;	ld hl, 9
+;	ld a, (AppBackUpScreen)
+;	ld e, a
+;	ld d, 0
+;	add hl, de
+;	pop de
+;	add hl, de
+;	b_call DispHL
+;	b_call NewLine
+;	ld hl, Type
+;	call PutSApp
+;	pop hl
+;	pop bc
+;	call LoadCIndPaged_inc
+;	ld a, 0BBh
+;	cp c
+;	jr nz, ArcBasic
+;	call LoadCIndPaged_inc
+;	ld a, 06Dh
+;	cp c
+;	jr nz, ArcBasic
+;	ld hl, Assembly
+;	call PutSApp
+;	jr Wait
+;ArcBasic:
+;	ld hl, Basic
+;	call PutSApp
+;	jr Wait
+;Unarchived:
+;	ld hl, No
+;	call PutSApp
+;	b_call NewLine
+;	ld hl, Size
+;	call PutSApp
+;	ex de, hl
+;	ld e, (hl)
+;	inc hl
+;	ld d, (hl)
+;	push hl
+;	push de
+;	ld hl, 9
+;	ld a, (AppBackUpScreen)
+;	ld e, a
+;	ld d, 0
+;	add hl, de
+;	pop de
+;	add hl, de
+;	b_call DispHL
+;	b_call NewLine
+;	ld hl, Type
+;	call PutSApp
+;	pop hl
+;	inc hl
+;	ld a, 0BBh
+;	cp (hl)
+;	jr nz, UnarcBasic
+;	inc hl
+;	ld a, 06Dh
+;	cp (hl)
+;	jr nz, UnarcBasic
+;	ld hl, Assembly
+;	call PutSApp
+;	jr Wait
+;UnarcBasic:
+;	ld hl, Basic
+;	call PutSApp
+;Wait:
+;	b_call GetKey
+;	ld a, kPrgm
+;	ret
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Shell-like info to the right of program list
+
+
+MD5Buffer equ 83A5h
+MD5Temp equ 8259h
+
+
+
+
+
+UpdateInfo:
 	ld a, (85E8h)
 	cp '@'
-	jr nz, NotEmpty
+	jr nz, NotEmpty2
 	xor a
 	ret
-NotEmpty:
-	b_call ClrLCDFull
-	ld hl, 0
-	ld (curRow), hl
-	ld hl, Name
-	call PutSApp
+NotEmpty2:
+;	pop hl
+;	pop af
+;	cp kUp
+;	jr z, FindUp
+;	cp kDown
+;	jr z, FindDown
+;	push af
+;	push hl
+
+	ld hl, OP1
+	ld de, MD5Buffer
+	ld bc, 22
+	ldir
+
 	ld hl, 85E7h
 	rst rMov9ToOP1
+;	jr FoundProgram
+;FindUp:
+;	push af
+;	push hl
+;	ld hl, 85E7h
+;	rst rMov9ToOP1
+;	b_call FindAlphaDn
+;	jr nc, FoundProgram
+;	b_call ZeroOP1
+;	ld a, ProgObj
+;	ld (OP1), a
+;	ld a, 0FEh
+;	ld (OP1+1), a
+;	b_call FindAlphaDn
+;	jr FoundProgram
+;FindDown:
+;	push af
+;	push hl
+;	ld hl, 85E7h
+;	rst rMov9ToOP1
+;	b_call FindAlphaUp
+;	jr nc, FoundProgram
+;	b_call ZeroOP1
+;	ld a, ProgObj
+;	ld (OP1), a
+;	b_call FindAlphaUp
+;FoundProgram:
+	ld hl, 0841h
+	ld de, 3F5Fh
+	b_call ClearRect
 	xor a
 	ld (OP1+9), a
 	ld hl, OP1+1
-NameLengthLoop:
+NameLengthLoop2:
 	inc hl
 	inc a
 	ld b, (hl)
 	inc b
-	djnz NameLengthLoop
-	ld (AppBackUpScreen), a
-	ld hl, OP1+1
-	b_call PutS
-	b_call NewLine
-	ld hl, Locked
-	call PutSApp
-	ld hl, No
+	djnz NameLengthLoop2
+
+	push hl
+	push bc
+	ld hl, plotSScreen
+	b_call SaveDisp
+	pop bc
+	pop hl
+
+	ld (MD5Buffer+22), a
+	ld hl, 0841h
+	ld (penCol), hl
+	ld de, UnlockedSprite
 	ld a, (OP1)
 	cp 5
-	jr z, Unlocked
-	ld hl, Yes
-Unlocked:
-	call PutSApp
-	b_call NewLine
-	ld hl, Archived
-	call PutSApp
+	jr z, Unlocked2
+
+
+	ld de, LockedSprite
+
+
+
+Unlocked2:
+
+	ld b, 8
+	ld a, 41h
+	ld l, 8h
+	ld c, 1
+	ld ix, 0
+	add ix, de
+
+	call ilsprite
+	call ifastcopy
+
 	b_call ChkFindSym
 	xor a
 	cp b
-	jr z, Unarchived
-	ld hl, Yes
-	call PutSApp
-	b_call NewLine
-	ld hl, Size
-	call PutSApp
+	jr z, Unarchived2
+	ld hl, 1041h
+	ld (penCol), hl
 	ex de, hl
 	call LoadCIndPaged_inc
 	call LoadDEIndPaged_inc
@@ -3186,103 +3583,263 @@ Unlocked:
 	ld e, c
 	call BHL_Plus_DE
 	call LoadDEIndPaged_inc
+	ld (MD5Buffer+23), de
 	push bc
 	push hl
 	push de
 	ld hl, 9
-	ld a, (AppBackUpScreen)
+	ld a, (MD5Buffer+22)
 	ld e, a
 	ld d, 0
 	add hl, de
 	pop de
 	add hl, de
-	b_call DispHL
-	b_call NewLine
-	ld hl, Type
-	call PutSApp
+	b_call SetXXXXOP2
+	b_call OP2ToOP1
+	b_call DispOP1A
+	ld a, 'b'
+	b_call VPutMap
+	ld hl, 1841h
+	ld (penCol), hl
 	pop hl
 	pop bc
+	ld de, (MD5Buffer+23)
+	ld a, 1
+	cp e
+	jr c, AtLeast2BytesArc
+	xor a
+	cp d
+	jr z, ArcBasic2
+AtLeast2BytesArc:
 	call LoadCIndPaged_inc
 	ld a, 0BBh
 	cp c
-	jr nz, ArcBasic
+	jr nz, ArcBasic2
 	call LoadCIndPaged_inc
 	ld a, 06Dh
 	cp c
-	jr nz, ArcBasic
-	ld hl, Assembly
-	call PutSApp
-	jr Wait
-ArcBasic:
-	ld hl, Basic
-	call PutSApp
-	jr Wait
-Unarchived:
-	ld hl, No
-	call PutSApp
-	b_call NewLine
-	ld hl, Size
-	call PutSApp
+	jr nz, ArcBasic2
+	ld (MD5Buffer+25), hl
+	ld hl, Assembly2
+	call VPutSApp
+
+	ld de, (MD5Buffer+23)
+	ld a, 33
+	cp e
+	jr c, AtLeast34BytesArc
+	xor a
+	cp d
+	jr z, RestoreAfterDisplay
+AtLeast34BytesArc:
+	ld hl, (MD5Buffer+25)
+	call LoadCIndPaged_inc
+	ld a, 0C9h
+	cp c
+	jr nz, RestoreAfterDisplay
+	call LoadCIndPaged_inc
+	ld a, c
+	cp 1
+	jr z, MirageOSPrgmArc
+	cp 3
+	jr nz, RestoreAfterDisplay
+MirageOSPrgmArc:
+	push hl
+	push bc
+	ld hl, plotSScreen
+	b_call SaveDisp
+	pop bc
+	pop hl
+	ld a, b
+	ld de, MD5Buffer+27
+	ld bc, 30
+	b_call FlashToRam
+	ld de, MD5Buffer+27
+	ld b, 15
+	ld a, 41h
+	ld l, 20h
+	ld c, 2
+	ld ix, 0
+	add ix, de
+
+	call ilsprite
+	call ifastcopy
+RestoreAfterDisplay:
+	ld hl, MD5Buffer
+	ld de, OP1
+	ld bc, 22
+	ldir
+
+	ret
+ArcBasic2:
+	ld hl, Basic2
+	call VPutSApp
+
+	ld hl, MD5Buffer
+	ld de, OP1
+	ld bc, 22
+	ldir
+
+	ret
+Unarchived2:
+	ld hl, 1041h
+	ld (penCol), hl
 	ex de, hl
 	ld e, (hl)
 	inc hl
 	ld d, (hl)
+	ld (MD5Buffer+23), de
 	push hl
 	push de
 	ld hl, 9
-	ld a, (AppBackUpScreen)
+	ld a, (MD5Buffer+22)
 	ld e, a
 	ld d, 0
 	add hl, de
 	pop de
 	add hl, de
-	b_call DispHL
-	b_call NewLine
-	ld hl, Type
-	call PutSApp
+	b_call SetXXXXOP2
+	b_call OP2ToOP1
+	b_call DispOP1A
+	ld a, 'b'
+	b_call VPutMap
+	ld hl, 1841h
+	ld (penCol), hl
 	pop hl
+	ld de, (MD5Buffer+23)
+	ld a, 1
+	cp e
+	jr c, AtLeast2Bytes
+	xor a
+	cp d
+	jr z, UnarcBasic2
+AtLeast2Bytes:
 	inc hl
 	ld a, 0BBh
 	cp (hl)
-	jr nz, UnarcBasic
+	jr nz, UnarcBasic2
 	inc hl
 	ld a, 06Dh
 	cp (hl)
-	jr nz, UnarcBasic
-	ld hl, Assembly
-	call PutSApp
-	jr Wait
-UnarcBasic:
-	ld hl, Basic
-	call PutSApp
-Wait:
-	b_call GetKey
-	ld a, kPrgm
+	jr nz, UnarcBasic2
+	ld (MD5Buffer+25), hl
+	ld hl, Assembly2
+	call VPutSApp
+	ld de, (MD5Buffer+23)
+	ld a, 33
+	cp e
+	jr c, AtLeast34Bytes
+	xor a
+	cp d
+	jr z, RestoreAfterDisplay
+AtLeast34Bytes:
+	ld hl, (MD5Buffer+25)
+	inc hl
+	ld a, 0C9h
+	cp (hl)
+	jr nz, RestoreAfterDisplay
+	inc hl
+	ld a, (hl)
+	cp 1
+	jr z, MirageOSPrgm
+	cp 3
+	jr nz, RestoreAfterDisplay
+MirageOSPrgm:
+	push hl
+	ld hl, plotSScreen
+	b_call SaveDisp
+	pop hl
+	inc hl
+	ex de, hl
+	ld b, 15
+	ld a, 41h
+	ld l, 20h
+	ld c, 2
+	ld ix, 0
+	add ix, de
+
+	call ilsprite
+	call ifastcopy
+
+	ld hl, MD5Buffer
+	ld de, OP1
+	ld bc, 22
+	ldir
+
+	ret
+UnarcBasic2:
+	ld hl, Basic2
+	call VPutSApp
+
+	ld hl, MD5Buffer
+	ld de, OP1
+	ld bc, 22
+	ldir
+
 	ret
 
 
 
-Name:
-	db "Name: ", 0
-Locked:
-	db "Locked: ", 0
-Archived:
-	db "Archived: ", 0
-Yes:
-	db "Yes", 0
-No:
-	db "No", 0
-Size:
-	db "Size: ", 0
-Type:
-	db "Type: ", 0
-Assembly:
-	db "Assembly", 0
-Basic:
-	db "Basic", 0
 
+;Locked2:
+;	db "Locked", 0
+;Unlocked1:
+;	db "Unlocked", 0
+Assembly2:
+	db "Asm", 0
+Basic2:
+	db "Basic", 0
+;Clear:
+;	db "-----------", 0
+
+LockedSprite:
+	db 00001100b
+	db 00010010b
+	db 00010010b
+	db 00111111b
+	db 00110011b
+	db 00110011b
+	db 00110011b
+	db 00111111b
+
+UnlockedSprite:
+	db 01100000b
+	db 10010000b
+	db 10010000b
+	db 00111111b
+	db 00110011b
+	db 00110011b
+	db 00110011b
+	db 00111111b
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Shell-like info to the right of program list
+
+
+;Name:
+;	db "Name: ", 0
+;Locked:
+;	db "Locked: ", 0
+;Archived:
+;	db "Archived: ", 0
+;Yes:
+;	db "Yes", 0
+;No:
+;	db "No", 0
+;Size:
+;	db "Size: ", 0
+;Type:
+;	db "Type: ", 0
+;Assembly:
+;	db "Assembly", 0
+;Basic:
+;	db "Basic", 0
+;
 Omnicalc:
 	db AppObj, "Omnicalc", 0
+Symbolic:
+	db AppObj, "Symbolic", 0
+
+;Omnicalc and Symbolic are chained without overwriting the hook pointer,
+;since it is possible for them to never return, and they don't need to be fooled
 
 ChainRawKeyPop:
 	pop af
@@ -3316,8 +3873,13 @@ NotArc13:
 	inc hl
 	pop af
 	push af
+	cp kPrgm
+	jr z, OmniBolicKey
+	cp kMath
+	jr z, OmniBolicKey
 	cp kAppsMenu
 	jr nz, NotApps
+OmniBolicKey:
 	push hl
 	push bc
 	ld hl, Omnicalc
@@ -3330,6 +3892,16 @@ NotArc13:
 	pop hl
 	jr ItsFastApps
 NoOmnicalc:
+	ld hl, Symbolic
+	rst rMov9ToOP1
+	b_call FindApp
+	jr c, NoSymbolic
+	pop bc
+	cp b
+	jr nz, NotOmnicalc
+	pop hl
+	jr ItsFastApps
+NoSymbolic:
 	pop bc
 NotOmnicalc:
 	pop hl
@@ -3340,16 +3912,19 @@ NotApps:
 ItsFastApps:
 	ld (AppBackUpScreen), hl
 	ld (AppBackUpScreen+2), a
+	set 1,(iy+asm_Flag1)
 	pop af
 	rst 28h
 	dw AppBackUpScreen+4000h
 	jr z, RawKeyZero
 	push af
 	call RestoreHooks
+	set 1,(iy+asm_Flag1)
 	pop af
 	ret
 RawKeyZero:
 	call RestoreHooks
+	set 1,(iy+asm_Flag1)
 	cp a
 	ret
 ;	push de
@@ -3375,25 +3950,25 @@ PopAReturnZ:
 	pop af
 	jr ReturnZ
 
-ChainReload:
-	ld a, (AppBackUpScreen)
-	jr ChainRawKey
+;ChainReload:
+;	ld a, (AppBackUpScreen)
+;	jr ChainRawKey
 
 
-JumpToOldHook2:
-	out (6), a
-	pop hl
-	ld a, (hl)
-	cp 83h
-	jr nz, RetZ2
-	inc hl
-	pop af
-	jp (hl)
-RetZ2:
-	pop af
-	cp a
-	ret
-EndJump2:
+;JumpToOldHook2:
+;	out (6), a
+;	pop hl
+;	ld a, (hl)
+;	cp 83h
+;	jr nz, RetZ2
+;	inc hl
+;	pop af
+;	jp (hl)
+;RetZ2:
+;	pop af
+;	cp a
+;	ret
+;EndJump2:
 
 
 
@@ -3402,6 +3977,150 @@ EndJump2:
 
 
 basic_end equ 965Fh
+
+
+
+
+
+
+
+MainGetKeyHook:
+	db 83h
+;	jr ChainGetKey
+	cp 1Bh
+	jr z, ChainGetKey
+	push af
+	push bc
+	bit 1,(iy+asm_Flag1)
+	jr z, QuitGetKeyHook
+	ld a, (MenuCurrent)
+	cp 3
+	jr nz, QuitGetKeyHook
+	ld a, (MenuCurrent+1)
+	cp 2
+	jr z, QuitGetKeyHook
+	ld hl, OP1
+	ld de, MD5Temp
+	ld bc, 9
+	ldir
+	call UpdateInfo
+	ld hl, MD5Temp
+	ld de, OP1
+	ld bc, 9
+	ldir
+	ld a, (MenuCurrent+1)
+	cp 0
+	jr z, QuitGetKeyHook
+	ld a, (85E7h)
+	cp ProtProgObj
+	jr nz, QuitGetKeyHook
+	xor a
+	ld (MenuCurrent+1), a
+	ld a, kLeft
+	b_call callMain
+	pop bc
+	pop af
+	ld a, kRight
+	cp a
+	ret
+
+QuitGetKeyHook:
+	pop bc
+	pop af
+
+
+
+
+
+
+ChainGetKey:
+	push af
+	push bc
+	ld hl, OP1
+	ld de, MD5Temp
+	ld bc, 9
+	ldir
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, PopABReturnGetKey
+	xor a
+	cp b
+	jr z, NotArc131
+	b_call Arc_Unarc
+	b_call ChkFindSym
+NotArc131:
+	ld hl, 35
+	add hl, de
+	ld e, (hl)
+	inc hl
+	ld d, (hl)
+	inc hl
+	ld a, (hl)
+	cp 0
+	jr z, PopABReturnGetKey
+	ex de, hl
+	ld b, a
+	b_call LoadCIndPaged
+	ld (MD5Temp+11), a
+	ld a, 83h
+	cp c
+	jr nz, PopABReturnGetKey
+	inc hl
+	ld (MD5Temp+9), hl
+	b_call OP4ToOP1
+	pop bc
+	pop af
+	rst 28h
+	dw MD5Temp+9+4000h
+	ret
+	jr z, GetKeyZero
+	push af
+	push bc
+;	call RestoreHooks
+	ld hl, MainGetKeyHook
+	ld (getKeyHookPtr), hl
+	in a, (6)
+	ld (getKeyHookPtr+2), a
+	pop bc
+	pop af
+	or 1
+	ret
+GetKeyZero:
+	push af
+	push bc
+;	call RestoreHooks
+	ld hl, MainGetKeyHook
+	ld (getKeyHookPtr), hl
+	in a, (6)
+	ld (getKeyHookPtr+2), a
+	pop bc
+	pop af
+	cp a
+	ret
+
+
+ReturnGetKey:
+	push af
+	push bc
+PopABReturnGetKey:
+	ld hl, MD5Temp
+	ld de, OP1
+	ld bc, 9
+	ldir
+	pop bc
+	pop af
+	cp 1Bh
+	jr z, oneB2
+	cp 1
+	ret
+oneB2:
+	ld a, b
+	cp 0
+	ret nz
+	cp 1
+	ret
+
 
 
 

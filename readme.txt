@@ -1,4 +1,4 @@
-CalcUtil v2.04
+CalcUtil v2.05
 (C) 2007 Daniel Weisz.
 
 	This program is free software; you can redistribute it and/or modify
@@ -63,7 +63,7 @@ Run as with any non-shell assembly program (with or without Asm().  If writeback
 9)Compatibility with Symbolic and old versions of Omnicalc.
 Symbolic and certain versions of Omnicalc use modified tokens that look like csc( instead of real(00.  If you chain with these apps, then by default CalcUtil will turn modified tokens into their real(xx equivalent, when you run the function at the homescreen or in a program.  To have CalcUtil turn the token back into the csc( form, select the option in the settings screen for supporting legacy tokens.
 
-10)In the program menu, you can now access additional features.  Highlight a program and press keys to act on it.  Press Alpha-L to toggle it's edit-locked status.  Press Alpha-A to toggle it's archived/unarchived status.  Press [+] to view more information about the seelcted program.
+10)In the program menu, you can now access additional features.  Highlight a program and press keys to act on it.  Press Alpha-L to toggle it's edit-locked status.  Press Alpha-A to toggle it's archived/unarchived status.  You can see further information about a program on the right side of the screen (locked/unlocked, size in bytes, assembly/basic, and MirageOS icon).
 
 Known Bugs
 ----------
@@ -83,6 +83,7 @@ v2.00:   No changes
 v2.01:   Fixed error when (un)archiving subprograms manually (Archive/Unarchive tokens in a program), and fixed crash when using Stop token.
 v2.02:   Re-implemented Startup and Shortcut functionality
 v2.03/4: Fixed "2" appearing on homescreen after APD.  Fixed AsmComp( not working.  Fixed Err:Memory on 2nd-Quit in Basic Input.  Fixed incorrect tokens if pressing [On]+[#] with no prgmPROGLIST.  Fixed issues with editing large programs.  Improved compatibility with Omnicalc's FastApps.  Features added to Program menus.
+v2.05:   Even better hook compatibility.  Fixed problems with re-opening the homescreen edit buffer.  Added program menu "sidebar."
 
 Version 1 History
 -----------------
