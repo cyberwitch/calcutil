@@ -1,4 +1,4 @@
-; CalcUtil v1.08
+; CalcUtil v1.09
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -622,7 +622,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v1.08", 0
+	db "CalcUtil v1.09", 0
 One:
 	db "1:", 0
 Install:
@@ -724,7 +724,10 @@ NotArc15:
 	ld de, 6
 	add hl, de
 	ld (hl), 0
-
+	ld de, 9
+	add hl, de
+	xor a
+	ld (hl), a
 
 
 
@@ -1210,11 +1213,11 @@ NotArc2:
 	ex de, hl
 	push de
 	b_call OP3ToOP1																;Copies program name to the appvar+6
+	call PushRealO1
 	pop de
 	ld hl, OP1+1
 	ld bc, 8
 	ldir
-
 	b_call OP6ToOP1
 
 	call PreParser
@@ -1245,7 +1248,29 @@ NotArc2:
 	ld b, 8
 	call CompareStrings
 	jr nz, NotArchivedCopy2
+	ld hl, AppVarName
+	rst rMov9ToOP1
 	b_call ChkFindSym
+	jr c, ResetFlags
+	xor a
+	cp b
+	jr z, NotArc00
+	b_call Arc_Unarc
+	b_call ChkFindSym
+NotArc00:
+	ld hl, 21
+	add hl, de
+	ld a, (hl)
+	dec a
+	ld (hl), a
+	inc a
+	ld hl, tempProgName
+	push af
+	rst rMov9ToOP1
+	pop af
+	ld (OP1+8), a
+	b_call ChkFindSym
+	jr c, ResetFlags
 	b_call DelVarArc
 	jr ResetFlags
 NotArchivedCopy2:
@@ -1270,41 +1295,12 @@ NotArc3:
 	ld a, (hl)
 	dec a
 	ld (hl), a
-	ld de, 6
-	add hl, de
-	ld a, (hl)
-	cp 1
-	jr nz, NotFirstPrgm
+	cp 0
+	jr nz, QuitHook2
 	res progExecuting, (iy + newDispF)
 	res cmdexec, (iy + cmdFlags)
-NotFirstPrgm:
-	ld hl, tempProgName
-	push af
-	rst rMov9ToOP1
-	pop af
-	ld (OP1+8), a
-	b_call ChkFindSym
-	jr c, NotFound
-	b_call DelVarArc
-NotFound:
-	ld a, (OP1+8)
-	dec a
-	push af
-	ld hl, AppVarName
-	rst rMov9ToOP1
-	b_call ChkFindSym
-	call c, NewAppVar
-	xor a
-	cp b
-	jr z, NotArcc
-	b_call Arc_Unarc
-	b_call ChkFindSym
-NotArcc:
-	ld hl, 21
-	add hl, de
-	pop af
-	ld (hl), a
 QuitHook2:
+	call PopRealO1
 	xor a
 	cp 1
 	ret
@@ -1351,6 +1347,17 @@ NotArchivedCopy3:
 
 ErrorHandler:
 	call FixAllPrograms
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	ld hl, 6
+	add hl, de
+	push hl
+	call PopRealO1
+	pop de
+	ld hl, OP1+1
+	ld bc, 8
+	ldir
 	b_call JErrorNo
 
 
@@ -1481,6 +1488,10 @@ ContAppChange:
 	ld hl, OP1+1
 	ld bc, 8
 	ldir
+	ld de, 16
+	add hl, de
+	ld a, 1
+	ld (hl), a
 	jr ReturnZPopAll
 
 ReturnZPopAllO1:
@@ -1526,7 +1537,7 @@ TurningOff:
 	add hl, de
 	xor a
 	cp (hl)
-	ret z
+;	ret z
 	ld (hl), a
 	call FixAllPrograms
 	call CleanNoFix
@@ -1568,7 +1579,8 @@ CheckHomeYes:
 	ld de, tempProgName+1
 	ld b, 7
 	call CompareStrings
-	jr nz, ContCheckHome
+;	jr nz, ContCheckHome
+	jr nz, CleanStuff
 	ld hl, AppVarName
 	rst rMov9ToOP1
 	b_call ChkFindSym
@@ -1629,7 +1641,6 @@ NotArc8:
 
 
 Continue:
-
 	b_call ChkFindSym
 	jr c, CleanStuff
 	xor a
