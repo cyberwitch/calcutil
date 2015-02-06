@@ -1,4 +1,4 @@
-; CalcUtil v2.03
+; CalcUtil v2.04
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -982,7 +982,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.03", 0
+	db "CalcUtil v2.04", 0
 One:
 	db "1:", 0
 Install:
@@ -1032,7 +1032,7 @@ AppChangeHook:
 	push de
 	push hl
 
-	call RestoreHooks
+;	call RestoreHooks
 
 	cp kMode
 	jr z, ChainAppChangeHook
@@ -1634,7 +1634,7 @@ AppChangePop:
 
 ParserHook:
 	db 83h
-	call RestoreHooks
+;	call RestoreHooks
 	or a
 	jr nz, Function
 	ld de, parseVar+1
@@ -3281,6 +3281,9 @@ Assembly:
 Basic:
 	db "Basic", 0
 
+Omnicalc:
+	db AppObj, "Omnicalc", 0
+
 ChainRawKeyPop:
 	pop af
 ChainRawKey:
@@ -3311,11 +3314,32 @@ NotArc13:
 	cp c
 	jr nz, PopAReturnZ
 	inc hl
+	pop af
+	push af
+	cp kAppsMenu
+	jr nz, NotApps
+	push hl
+	push bc
+	ld hl, Omnicalc
+	rst rMov9ToOP1
+	b_call FindApp
+	jr c, NoOmnicalc
+	pop bc
+	cp b
+	jr nz, NotOmnicalc
+	pop hl
+	jr ItsFastApps
+NoOmnicalc:
+	pop bc
+NotOmnicalc:
+	pop hl
+NotApps:
 	ld a, b
-	ld (AppBackUpScreen), hl
-	ld (AppBackUpScreen+2), a
 	ld (rawKeyHookPtr), hl
 	ld (rawKeyHookPtr+2), a
+ItsFastApps:
+	ld (AppBackUpScreen), hl
+	ld (AppBackUpScreen+2), a
 	pop af
 	rst 28h
 	dw AppBackUpScreen+4000h

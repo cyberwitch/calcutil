@@ -1,4 +1,4 @@
-CalcUtil v2.03
+CalcUtil v2.04
 (C) 2007 Daniel Weisz.
 
 	This program is free software; you can redistribute it and/or modify
@@ -23,8 +23,6 @@ Author: Daniel Weisz aka magicdanw aka pcGuru()
 This application adds a number of features to the TI-83+ series of graphing calculators.  If you have comments, bugs, criticisms, or suggestions, please email me at magicdanw@yahoo.com with "CalcUtil" in the subject.  I regularly visit the forums at unitedti.org, so a post in the ASM development section will likely get my attention as well.
 
 To install, load the application (CalcUtil.8xk) onto your calculator with a linking program such as TI Connect.  Run the application from the APPS menu and press [1] to choose Install.  If previous hooks are found (such as Omnicalc's hooks), you will be notified, and pressing [+] will attempt to chain the hooks.  If there is an issue with chaining, pressing [Enter] will overwrite previous hooks.
-
-Note that in order to remain compatible with the greatest number of hook applications, CalcUtil must be a bit aggressive in maintaining control of it's hooks.  If a new hook is installed on top of CalcUtil, CalcUtil will most likely uninstall it.  Please be sure to install CalcUtil last in the series of apps, for best compatibility.  To install a new hook, open CalcUtil and choose Uninstall first.
 
 Once CalcUtil is installed, you can use the following features:
 
@@ -84,7 +82,7 @@ v2.00b4: Fixed bug with the new writeback method (locked programs would become u
 v2.00:   No changes
 v2.01:   Fixed error when (un)archiving subprograms manually (Archive/Unarchive tokens in a program), and fixed crash when using Stop token.
 v2.02:   Re-implemented Startup and Shortcut functionality
-v2.03:   Fixed "2" appearing on homescreen after APD.  Fixed AsmComp( not working.  Fixed Err:Memory on 2nd-Quit in Basic Input.  Fixed incorrect tokens if pressing [On]+[#] with no prgmPROGLIST.  Fixed issues with editing large programs.  Improved compatibility with Omnicalc's FastApps.  Features added to Program menus.
+v2.03/4: Fixed "2" appearing on homescreen after APD.  Fixed AsmComp( not working.  Fixed Err:Memory on 2nd-Quit in Basic Input.  Fixed incorrect tokens if pressing [On]+[#] with no prgmPROGLIST.  Fixed issues with editing large programs.  Improved compatibility with Omnicalc's FastApps.  Features added to Program menus.
 
 Version 1 History
 -----------------
