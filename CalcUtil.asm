@@ -1,5 +1,5 @@
 ; CalcUtil v2.05
-; (C) 2007 Daniel Weisz.
+; (C) 2007 Danielle Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -975,7 +975,7 @@ AboutText1:
 AboutText2:
 	db "This program was created", 0
 AboutText3:
-	db "by Daniel Weisz to add", 0
+	db "by Danielle Weisz to add", 0
 AboutText4:
 	db "features to the TI-83+", 0
 AboutText5:

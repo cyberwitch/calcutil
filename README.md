@@ -1,5 +1,5 @@
 CalcUtil v2.05
-(C) 2007 Daniel Weisz.
+(C) 2007 Danielle Weisz.
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@ CalcUtil v2.05
 	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 ---------------------------------------------------------------------------------------------------
 
-Author: Daniel Weisz aka magicdanw aka pcGuru()
+Author: Danielle Weisz
 	Routines for assembly shells written by Brandon Wilson in Noshell v1.2 (C) 2007
 	Token replacement routines based on Omnicalc v1.1 routines by Michael Vincent (C) 2002-2003
 
