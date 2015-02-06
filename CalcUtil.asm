@@ -1,4 +1,4 @@
-; CalcUtil v2.00
+; CalcUtil v2.02
 ; (C) 2007 Daniel Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -260,22 +260,22 @@ InstallHooks:
 	;jr nz, ShowWarning
 
 InstallHooks2:
-;
-;	ld hl, Offscrpt									;Set up the offscript variable
-;	rst rMov9ToOP1
-;	b_call ChkFindSym
-;	jr c, CreateOff
-;	b_call DelVarArc
-;CreateOff:
-;	ld hl, AppVarEnd - AppVarStart + 1
-;	b_call CreateAppVar
-;	inc de
-;	inc de
-;	ld hl, AppVarStart
-;	ld bc, AppVarEnd - AppVarStart + 1
-;	ldir
-;
-;	set 1, (IY + 33h)
+
+	ld hl, Offscrpt									;Set up the offscript variable
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, CreateOff
+	b_call DelVarArc
+CreateOff:
+	ld hl, AppVarEnd - AppVarStart + 1
+	b_call CreateAppVar
+	inc de
+	inc de
+	ld hl, AppVarStart
+	ld bc, AppVarEnd - AppVarStart + 1
+	ldir
+
+	set 1, (IY + 33h)
 
 
 
@@ -982,7 +982,7 @@ AnyKey2:
 	db "to continue...", 0
 
 Util:
-	db "CalcUtil v2.00", 0
+	db "CalcUtil v2.02", 0
 One:
 	db "1:", 0
 Install:
@@ -1728,7 +1728,8 @@ ParserEntrypoint:
 	ld a, ProtProgObj
 	ld (OP1), a
 	b_call ChkFindSym
-	ret c
+	jr nc, Good
+	b_jump ErrUndefined
 Good:
 	b_call PushRealO1
 	ld hl, AppVarName
@@ -2393,10 +2394,10 @@ FinishCleanUp:
 
 Function:
 	push af
-	ld a, b
+	ld a, c
 	cp 1
 	jr z, XX01
-	cp c
+	cp b
 	jr nz, ChainParserNew
 	cp 8Ah
 	jr z, RealTok
@@ -2425,7 +2426,7 @@ Function:
 	ret
 
 XX01:
-	ld a, c
+	ld a, b
 	cp 5Bh
 	jr z, ArcTok
 	cp 5Ch
@@ -2742,7 +2743,7 @@ RawKeyHook:
 	cp kQuit
 	jr z, Quitting
 	cp kOff
-	jr nz, ChainRawKey
+	jr nz, CheckNum
 	ld a, (cxCurApp)
 	cp kPrgmEd
 	jr nz, TurnOff
@@ -2771,6 +2772,242 @@ NoApps:
 	cp 1
 	ret
 	
+
+QuitHook2:
+	xor a
+	cp a
+	ret
+
+Startup:
+	ld a, tS + 5Eh
+	jr NoOnNecessary
+
+
+CheckNum:
+	cp k1
+	jr c, ChainRawKey
+	cp k9 + 1
+	jr nc, ChainRawKey
+
+	ld (AppBackUpScreen), a
+
+	push af
+	in a, (4)
+	bit 3, a
+	jr nz, ChainRawKeyPop
+
+
+;	ld hl, AppVarName
+;	rst rMov9ToOP1
+;	b_call ChkFindSym
+;	jr c, QuitHook2
+;	xor a
+;	cp b
+;	jr z, NotArc11
+;	b_call Arc_Unarc
+;	b_call ChkFindSym
+;NotArc11:
+;	ld hl, 20
+;	add hl, de
+;	ld (hl), 42
+
+	;ld a, (cxCurApp)
+	;cp kPrgmEd
+	;jr z, PopAReturnZ
+
+	ld a, kQuit
+	b_call NewContext0
+
+
+
+	pop af
+
+NoOnNecessary:
+	ld (AppBackUpScreen), a
+	ld hl, AppVarName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, QuitHook2
+	xor a
+	cp b
+	jr z, NotArc12
+	b_call Arc_Unarc
+	b_call ChkFindSym
+NotArc12:
+	ld hl, 12
+	add hl, de
+	ld (hl), 0
+;	ld de, 8
+;	add hl, de
+;	ld (hl), 0
+
+;	b_call DisableGetKeyHook
+	ld hl, PROGLIST
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, NoMatch
+	ld a, (AppBackUpScreen)
+	add -5Eh
+	ld (AppBackUpScreen), a
+	bit editOpen, (IY + editFlags)
+	jr z, NoEdit
+	b_call CloseEditBuf
+NoEdit:
+	ld hl, PROGLIST
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, NoMatch
+	xor a
+	cp b
+	call nz, CopyPrgmToRam
+	ex de, hl
+	ld c, (hl)
+	inc hl
+	ld b, (hl)
+	inc hl
+
+NumLoop:
+	ld a, (AppBackUpScreen)
+	cp (hl)
+	jr nz, IncLoop
+	inc hl
+	dec bc
+	ld a, b
+	or c
+	jr z, NoMatch
+	ld a, tcolon
+	cp (hl)
+	jr nz, NumLoop
+	inc hl
+	dec bc
+	ld a, b
+	or c
+	jr z, NoMatch
+	ld a, tprog
+	cp (hl)
+	jr nz, NumLoop
+	dec hl
+	inc bc
+	ld (basic_pc), hl
+FindEOL:
+	ld a, tenter
+	inc hl
+	dec bc
+	cp (hl)
+	jr z, FoundEOL
+	ld a, b
+	or c
+	jr nz, FindEOL
+
+
+
+FoundEOL:
+	dec hl
+	ld (basic_end), hl
+	b_call ParsePrgmName
+	b_call OP1ToOP6
+
+	ld hl, tempProgName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, NotAround2
+	b_call DelVarArc
+NotAround2:
+
+
+	ld a, kOff
+	b_call NewContext
+	b_call BufClear
+	ld a, kClear
+	b_call cxMain
+	ld e, 5Fh
+	ld d, 0
+	b_call TokToKey
+	b_call cxMain
+	;b_call Mon
+	ld hl, OP6 + 1
+	ld b, 8
+loop:
+	ld d, 0
+	ld a, (hl)
+	cp d
+	jr z, FinishedInserting
+	ld e, a
+	push bc
+	push hl
+	b_call TokToKey
+	b_call cxMain
+	pop hl
+	pop bc
+	inc hl
+	djnz loop
+FinishedInserting:
+;	call CleanUp
+;	ld a, (AppBackUpScreen)
+;	add 5Eh
+	ld a, kEnter
+	b_call cxMain
+	xor a
+	cp 0
+	ret
+;	b_call Mon
+
+
+
+
+;	b_call RunIndicOn
+;
+;	call CheckArchivedRunAlreadyInOP1
+;	ld hl, tempProgName
+;	rst rMov9ToOP1
+;	b_call ChkFindSym
+;	jr c, QuitHook2
+;	b_call DelVarArc
+;	ld a, kQuit
+;	cp a
+;	ret
+
+
+
+
+_TokToKey equ 4A0Bh
+_cxMain			equ 4045h
+
+
+IncLoop:
+	inc hl
+	dec bc
+	ld a, b
+	or c
+	jr nz, NumLoop
+
+
+NoMatch:
+;	call CleanUp
+	ld hl, tempProgName
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, NotAround
+	b_call DelVarArc
+NotAround:
+	ld a, (AppBackUpScreen)
+	add 5Eh
+	cp a
+	ret
+
+
+
+
+
+
+
+
+
+
+
+
+ChainRawKeyPop:
+	pop af
 ChainRawKey:
 	push af
 	ld hl, AppVarName
@@ -3127,27 +3364,38 @@ ContinueCopy2:
 
 
 GetKeyHook:
-;	db 83h
-;	ld (AppBackUpScreen), a
-;	b_call DisableGetKeyHook
+	db 83h
+	ld (AppBackUpScreen), a
+	ld a, (0FFFCh)
+	cp 0
+	jr z, NoHook2
+	ld hl, 0FFFCh
+	ld de, getKeyHookPtr
+	ld bc, 4
+	ldir
+	jr YesHook2
+NoHook2:
+	b_call DisableGetKeyHook
+YesHook2:
 ;	call FixAllPrograms
 ;	call CleanNoFix
-;	ld hl, PROGLIST
-;	rst rMov9ToOP1
-;	b_call ChkFindSym
-;	jr c, GetKeyEnd
-;	b_call CursorOff
-;	ld a, (AppBackUpScreen)
-;	call Startup
-;	b_call CursorOn
-;	ld a, kQuit
-;	b_call NewContext0
-;GetKeyEnd:
-;	ld a, 1Ah
-;	cp 0
-;	ret
+	ld hl, PROGLIST
+	rst rMov9ToOP1
+	b_call ChkFindSym
+	jr c, GetKeyEnd
+	b_call CursorOff
+	ld a, (AppBackUpScreen)
+	call Startup
+	b_call CursorOn
+	ld a, kQuit
+	b_call NewContext0
+GetKeyEnd:
+	ld a, 1Ah
+	cp 0
+	ret
 
-
+PROGLIST:
+	db ProgObj, "PROGLIST"
 
 
 
@@ -3159,6 +3407,15 @@ AppVarStart:
 ;	b_call DelVarArc
 ;	ret
 ;QuitHook4:
+	xor a
+	ld (0FFFCh), a
+	bit getKeyBit, (iy + getKeyHookFlag)
+	jr z, NoHook
+	ld hl, getKeyHookPtr
+	ld de, 0FFFCh
+	ld bc, 4
+	ldir
+NoHook:
 	ld hl, AppName2 - AppVarStart + 8001h
 	rst rMov9ToOP1
 	b_call FindApp

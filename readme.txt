@@ -1,4 +1,4 @@
-CalcUtil v2.00
+CalcUtil v2.02
 (C) 2007 Daniel Weisz.
 
 	This program is free software; you can redistribute it and/or modify
@@ -33,10 +33,10 @@ ASM programs (archived or unarchived) can be run like BASIC programs without the
 3)Archive and unarchive programs within a BASIC program.
 CalcUtil overrides the Archive and Unarchive tokens to allow archiving and unarchiving any programs within a BASIC program (even the program itself, although it is not recommended, and may cause undesirable side effects).
 
-4)Have a program run at startup.***Removed temporarily***
+4)Have a program run at startup.
 To run any program when the calculator turns on, create a BASIC program called PROGLIST.  On an empty line, write a capital S (for Startup), a colon, and then the program name.
 
-5)Create shortcut keys to programs.***Removed temporarily***
+5)Create shortcut keys to programs.
 To assign a program to a shortcut key ([ON] + any number key [1] through [9]), create a BASIC program called PROGLIST.  On an empty line, write the key number, a colon, and then the program name.
 
 Example:
@@ -74,6 +74,8 @@ v2.00b2: Cleans up the screen settings when an assembly program quits.  Displays
 v2.00b3: When you uninstall CalcUtil, it reinstalls chained hooks.  When you install CalcUtil twice in a row, it retains the hooks chained the first time.  Assembly program writeback now works with less free ram necessary.
 v2.00b4: Fixed bug with the new writeback method (locked programs would become unlocked).
 v2.00:   No changes
+v2.01:   Fixed error when (un)archiving subprograms manually (Archive/Unarchive tokens in a program), and fixed crash when using Stop token.
+v2.02:   Re-implemented Startup and Shortcut functionality
 
 Version 1 History
 -----------------
