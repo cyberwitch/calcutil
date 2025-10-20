@@ -1,5 +1,5 @@
 ; CalcUtil v2.05
-; (C) 2007 Danielle Weisz.
+; (C) 2025 Danielle Weisz.
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
